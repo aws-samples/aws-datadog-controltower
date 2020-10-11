@@ -29,7 +29,7 @@
 
 ## Solution Design
 
-![](images/arch-diagram1.png)
+![](images/arch-diagram.png)
 
 
 ## Set up and Test
@@ -54,7 +54,7 @@
  * From https://app.datadoghq.com/account/settings#integrations/amazon-web-services click on 'Add Account'->'Role Delegation'->Manual. Add the Account ID of the AWS Control Tower managed account and Role Name(DatadogIntegrationRole).Copy the generated External ID. 
  	- Go back to the AWS Control Tower managed account and update the External ID in the DatadogIntegrationRole with the External ID that was generated in the Datadog console
  	- Click on "Update Configuration" in Datadog console to complete the setup
-5. **Test - Create a Control Tower Lifecyle Event** 
+5. **Test - Create a AWS Control Tower Master account Lifecycle Event** 
  * From the AWS Control Tower Master Account:
     - Create a Control Tower Lifecycle event that is not related to creating/updating managed account. For e.g. enable a new detective non mandatory Guardrail on an OU.
     - For quick validation - check that an email has been received which describes the event as logged in CloudTrail
