@@ -36,7 +36,7 @@
 
 1. **Datadog - Initial Setup** 
  * From https://app.datadoghq.com/account/settings#api create an API Key
-2. ** AWS Setup - AWS Control Tower Master account**
+2. **AWS Setup - AWS Control Tower Master account**
  * Launch the aws-datadog-controltower-v1.yml template in the AWS Control Tower Master account
  	-  Enter the API Key above. Accept all defaults
  	-  Ensure that a AWS CloudFormation StackSet is successfully created for the Datadog forwarder template
