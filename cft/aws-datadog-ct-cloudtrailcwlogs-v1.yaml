@@ -5,7 +5,7 @@ Description: AWS Control Tower Lifecycle Events for Datadog
 # ----------------------------------------------------------------------------------------------------------
 #  CloudFormation Template 2 of 2 - Provides Control Tower Lifecyle Events Integration with Datadog using CloudTrail.
 # 
-#  This template allows all Control Tower Lifecycle Events to be forwarded to Datadog. 
+#  This template allows all Control Tower Lifecycle Events from the Control Tower Master Account to be forwarded to Datadog. 
 #  
 #  1- Control Tower Lifecyle events are logged to CloudTrail in CloudWatch Logs provided during Control Tower set up
 #  2- Provisions a CloudWatch Logs Metric Filter for the Control Tower CloudWatch Logs that filters 

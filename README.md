@@ -1,46 +1,55 @@
 <p align="center">
 </p>
 
-# Automated, Real Time and Continuous Remediations for PCI Benchmarks using AWS Config
+# Use AWS Control Tower with Datadog for Multi account AWS Cloud Monitoring and Analytics
 
-These templates provide real time, continuous and automated remediations for each of the PCI benchmarks by providing a fully automated  integration with AWS Config Remediation and AWS Systems Manager automation documents. They leverage the format of AWS Config Conformance Packs
-
-This is the first of the 2 approaches---these templates are built to leverage AWS Config for both detection and automatic, continuous remediation. Another set of templates in this repository  provide an incident response dashboard mechanism  (i.e. not continuous/self healing) that natively uses AWS Security Hub for both detection and automated remediation. 
-
-Template 1 first provisions AWS Systems Manager Automation Documents as well as all the required pre-reqs. Template 2 then leverages the SSM documents within AWS Config Remediation Rules in the format of Conformance Packs.
+* AWS Control Tower Lifecyle Integration with Datadog - Allow new or updated AWS accounts in an AWS Control Tower based AWS Organization to be managed automatically by Datadog
+* AWS Control Tower Master Account Integration with Datadog - Allow all AWS Control Tower Lifecycle Events (for e.g. events such as enable/disable guardrails on an OU) to be forwarded to Datadog
 
 
 ## How it Works
 
-1. Leverages the format of AWS Conformance Templates
-2. Leverages AWS Config Managed Rules to provide automated and continuous detection and recording of PCI Benchmarks - native built-in support from AWS for providing secure compliance baselines
-3. Provides NEW AWS Systems Manager Automation Documents for automated remediation for AWS Config PCI Benchmark findings
-4. Provides NEW integration of AWS Config Remediations with AWS Systems Manager Automation Documents to provide continuous and real time remediations of AWS Config PCI Benchmark findings
+1. **Template: aws-datadog-controltower-v1.yml**:
+ * This template provisions infrastructure in the Control Tower Master account that allows creation of Datadog stack instances in Control Tower managed accounts whenever a new Control Tower managed account is added
+ * Creates a Datadog Stackset in the Control Tower Master Account 
+ * Provisions a CloudWatchEvents Rule that is triggered based on a Control Tower Lifecycle Event
+ * Provisions a Lifecyle Lambda as a target for the CloudWatch Events Rule
+ 	- The Lifecycle Lambda deploys a Datadog stack in the newly added Control Tower managed account--thus placing that account under Datadog management
+ * The infrastructure provisioned by this template above allows for a Control Tower lifecycle event trigger specifically the CreateManagedAccount or UpdateManagedAccount events to:
+	- Trigger the Lifecyle Lambda that creates Datadog stack instance in the managed account based on the Datadog stackset in the master account
+ * All parameters that are needed for the Datadog Forwarder such as API Key and Secret are stored and retrieved from AWS Secrets Manager
 
-
-## DEMO
-
-Watch a [demo](https://awscisautoreme.com/overview.html) here to see how this solution works end to end for CIS Benchmarks
+2. **Template: aws-datadog-ct-cloudtrailcwlogs-v1**:
+ * This template allows all Control Tower Lifecycle Events from the Control Tower Master Account to be forwarded to Datadog
+ * Control Tower Lifecyle events are logged to CloudTrail in CloudWatch Logs provided during Control Tower set up
+ * Provisions a CloudWatch Logs Metric Filter for the Control Tower CloudWatch Logs that filters based on Control Tower Lifecycle events
+ * Provisions a CloudWatch Alarm that is triggered wheneven a metric condition is met 
+ * Provisions SNS topic that notifies Datadog Forwarder Lambda as well has an optional email subscriber 
+ 
 
 ## Solution Design
 
-![Solution Design](https://github.com/kmmahaj/config/blob/master/aws-conformancepack-pci/images/arch-diagram1.png)
+![](images/arch-diagram1.png)
 
 
-## How To Install
+## Set up
 
-1. **Template 1 of 2:** aws-pci-confpack-ssmautomation.yml
-* Provisions AWS Systems Manager automation documents. These documents are used to provide automated remediations within the provisioned AWS Config Rule.
-* Provisions with fully built-in pre-reqs. No input parameters required. Simply install on the CloudFormation console (or CLI). Installs in approx 3-4 mins.
+1. **Validate** 
+ * Login to the AWS Console from the Team Dashboard
+ 	-  Ensure that the CloudFormation template mod-* has fully deployed. Wait to proceed further until the template has successfully deployed
+ 	-  Check that the attack has been initiated in the AWS environment:
+ 		- CloudTrail (called 'GameDayTrail') has Log File Validation Disabled and CloudWatch Logs Monitoring Disabled
+ 		- KMS Customer Master Key (with description 'Test Key Rotation') has key rotation disabled
+ 		- Elastic IP has an unassociated Instance ID
 
-2. **Template 2 of 2:** aws-pci-conformancepack.yml
-* Provisions AWS Config Rules in the format of a Conformance Template with built-in remediation. No input parameters. Simply install on the CloudFormation console (or CLI). Installs in approx 3-4 mins.
-* Leverages the output from the previous template specifically the AWS Systems Manager Automation documents
+2. **Detect and Remediate Attack** 
+ * Login to the AWS Console from the Team Dashboard:
+    - Turn on AWS Config
+ 	- Deploy the **'mg-gameday-module3-configremediations-v1'** CloudFormation Template
+ 	- Validate that AWS Config Managed Rules have been provisioned. Each Config Rule has an associated AWS Systems Manager Automation associated with it as a remediation
+ 	- After a few minutes check each of the misconfigured resources from the attack. Ensure that the attack has been thwarted and all resources are in a compliant state. Check the AWS Config Dashboard to see how Config has detected and then remediated the violations
 
-## COVERAGE
-
-The [Coverage Matrix](https://github.com/kmmahaj/config/blob/master/aws-conformancepack-pci/coverage/AWS%20SecurityHub%20Benchmarks-Coverage-v1.xlsx) provides the current coverage of this solution wrt the PCI Benchmarks
-
-## Author
-
-Kanishk Mahajan; kmmahaj@amazon.com
+3. **Earn Points** 
+ * On the Team Dashboard:
+    - Enter the name of the CloudFormation template that you deployed and click update
+    - The Game will check the misconfigured resources have been updated and will award x points each for each remediated resource 
