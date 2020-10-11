@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS Control Tower Lifecycle Events for Datadog
+
+
+# ----------------------------------------------------------------------------------------------------------
+#  CloudFormation Template 2 of 2 - Provides Control Tower Lifecyle Events Integration with Datadog using CloudTrail.
+# 
+#  This template allows all Control Tower Lifecycle Events to be forwarded to Datadog. 
+#  
+#  1- Control Tower Lifecyle events are logged to CloudTrail in CloudWatch Logs provided during Control Tower set up
+#  2- Provisions a CloudWatch Logs Metric Filter for the Control Tower CloudWatch Logs that filters 
+#     based on Control Tower Lifecycle events
+#  3- Provisions a CloudWatch Alarm that is triggered wheneven a metric condition is met 
+#  4. Provisions SNS topic that notifies Datadog Forwarder Lambda as well has an optional email subscriber 
+#  
+#  
+#
+##
+## License:
+## This code is made available under the MIT-0 license. See the LICENSE file.
+# ------------------------------------------------------------...............................................
+
+Parameters:
+  EmailAddress:
+    Description: Email Address for notifications
+    Type: String
+    Default:  admin@example.com
+  ControlTowerCloudWatchLogGroup:
+    Description: CLoudWatch Group used by Control Tower for logging CloudTrail Events
+    Type: String
+    Default:  aws-controltower/CloudTrailLogs
+
+
+Resources:
+  
+#--------------------------------------------------------------------------------------------------------------------------------------------
+# Control Tower Lifecycle Events - CloudWatch Logs Metric Filter. Creates an alarm that publishes to SNS in 
+#                                  Control Tower Master account
+# 
+# Currently set to email as a subscriber. Can set to Datadog Forwarder Lambda as subscriber
+# --------------------------------------------------------------------------------------------------------------------------------------------
+
+# SNS topic for CloudWatch Alarm Notifications
+  ControlTowerLifecycleTopic:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      DisplayName: ControlTowerLifecycleTopic
+      TopicName: ControlTowerLifecycleTopic
+
+# Email Subscription for SNS topic
+  ControlTowerAlarmEmailSubscription:
+    Type: 'AWS::SNS::Subscription'
+    Properties:
+      Protocol: email
+      Endpoint: !Ref EmailAddress
+      TopicArn: !Ref ControlTowerLifecycleTopic
+
+# CloudWatch Log Metric Filter and CloudWatch Alarm for Control Tower Lifecycle Events
+  ControlTowerLifecycleEventAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: Control Tower Lifecycle Event Detection
+      AlarmDescription: Alarm if Control Tower Lifecycle Event occurs
+      MetricName: ControlTowerLifecycleEventCount
+      Namespace: LogMetrics
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref ControlTowerLifecycleTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+  IAMPolicyChangesFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref ControlTowerCloudWatchLogGroup
+      FilterPattern: |-
+        {
+          ($.eventName=CreateManagedAccount) ||
+          ($.eventName=UpdateManagedAccount) ||
+          ($.eventName=EnableGuardrail) ||
+          ($.eventName=EnableGuardrail) ||
+          ($.eventName=DisableGuardrail) ||
+          ($.eventName=UpdateLandingZone) ||
+          ($.eventName=RegisterOrganizationalUnit) ||
+          ($.eventName=DeregisterOrganizationalUnit)
+        }
+      MetricTransformations:
+      - MetricValue: '1'
+        MetricNamespace: LogMetrics
+        MetricName: ControlTowerLifecycleEventCount

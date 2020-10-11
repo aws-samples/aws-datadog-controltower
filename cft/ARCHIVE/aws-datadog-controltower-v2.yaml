@@ -1,0 +1,490 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS Control Tower Lifecycle Events for Datadog
+
+
+# ----------------------------------------------------------------------------------------------------------
+#  CloudFormation Template 1 of 1 - Provisions Datadog stack instances in Control Tower Managed Accounts whenever a new Control
+#                                   Tower managed account is added
+#  
+#  1- Creates a Datadog Stackset in the Control Tower Master Account 
+#  2- Provisions Datadog Stack instances in the Control Tower Managed Accounts
+#  3- Provisions a CloudWatchEvents Rule that is triggered based on a Control Tower Lifecycle Event
+#  4- Provisions a Lifecyle Lambda as a target for the CloudWatch Events Rule.
+#     Lifecyle Lambda creates Datadog stack instance in the managed account based on the Datadog stackset in the master account
+#  
+#
+##
+## License:
+## This code is made available under the MIT-0 license. See the LICENSE file.
+# ------------------------------------------------------------...............................................
+
+Parameters:
+  DatadogTemplateURL:
+    Description: >-
+      Datadog CloudFormation template URL. Provisions Datadog forwarder and Datadog Integration Role
+    Type: String
+    Default: 'https://datadog-cloudformation-template.s3.amazonaws.com/aws/main.yaml'
+  ExternalId:
+    Description: >-
+      External ID for the Datadog role (generate at
+      https://app.datadoghq.com/account/settings#integrations/amazon-web-services)
+    Type: String
+    AllowedPattern: .+
+    Default: "11f75e0e09384e098705e9041976e4ef"
+    ConstraintDescription: ExternalId is required
+  DdApiKey:
+    Description: >-
+      API key for the Datadog account (find at
+      https://app.datadoghq.com/account/settings#api)
+    Type: String
+    Default: "16d7d2476a1d5187d14a0c0803d94e0d"
+    AllowedPattern: .+
+    ConstraintDescription: DdApiKey is required
+  DdSite:
+    Type: String
+    Default: datadoghq.com
+    Description: Define your Datadog Site to send data to. For the Datadog EU site, set to datadoghq.eu
+    AllowedPattern: .+
+    ConstraintDescription: DdSite is required
+  IAMRoleName:
+    Description: Customize the name of IAM role for Datadog AWS integration
+    Type: String
+    Default: DatadogIntegrationRole
+  Permissions:
+    Description: >-
+      Customize the permission level for the Datadog IAM role.
+      Select "Core" to only grant Datadog read-only permissions (not recommended).
+    Type: String
+    Default: Full
+    AllowedValues:
+      - Full
+      - Core
+  LogArchives:
+    Description: >-
+      S3 paths to store log archives for log rehydration. Separate multiple paths with comma,
+      e.g., "my-bucket,my-bucket-with-path/path". Permissions will be automatically added to
+      the Datadog integration IAM role. https://docs.datadoghq.com/logs/archives/rehydrating/?tab=awss3
+    Type: String
+    Default: ''
+  CloudTrails:
+    Description: >-
+      S3 buckets for Datadog CloudTrail integration. Separate multiple buckets with comma,
+      e.g., "bucket1,bucket2". Permissions will be automatically added to the Datadog integration IAM role.
+      https://docs.datadoghq.com/integrations/amazon_cloudtrail/
+    Type: String
+    Default: ''
+  DdAWSAccountId:
+    Description: >-
+      Datadog AWS account ID allowed to assume the integration IAM role. DO NOT CHANGE!
+    Type: String
+    Default: "464622532012"
+  DdForwarderName:
+    Type: String
+    Default: DatadogForwarder
+    Description: >-
+      The Datadog Forwarder Lambda function name. DO NOT change when updating an existing CloudFormation stack,
+      otherwise the current forwarder function will be replaced and all the triggers will be lost.
+  InstallDatadogPolicyMacro:
+    Type: String
+    Default: true
+    AllowedValues:
+      - true
+      - false
+    Description: If you already deployed a stack using this template, set this parameter to false to skip the installation of the DatadogPolicy Macro again.
+  EmailAddress:
+    Description: Email Address for notifications
+    Type: String
+    Default:  admin@example.com
+  ControlTowerCloudWatchLogGroup:
+    Description: CLoudWatch Group used by Control Tower for logging CloudTrail Events
+    Type: String
+    Default:  aws-controltower/CloudTrailLogs
+
+
+Conditions:
+  ShouldInstallDatadogPolicyMacro:
+    Fn::Equals:
+      - Ref: InstallDatadogPolicyMacro
+      - true
+
+
+Resources:
+  
+  DatadogSecretString1:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: Datadog Parameters required for Datadog Pro
+      Name: DatadogSecretString1
+      SecretString:
+        Fn::Join:
+        - ''
+        - - '{"ExternalId":"'
+          - Ref: ExternalId
+          - '","DdApiKey": "'
+          - Ref: DdApiKey
+          - '","DdSite": "'
+          - Ref: DdSite
+          - '","Permissions": "'
+          - Ref: Permissions
+          - '","IAMRoleName": "'
+          - Ref: IAMRoleName
+          - '","LogArchives": "'
+          - Ref: LogArchives
+          - '","CloudTrails": "'
+          - Ref: CloudTrails
+          - '","DdAWSAccountId": "'
+          - Ref: DdAWSAccountId
+          - '","DdForwarderName": "'
+          - Ref: DdForwarderName
+          - '"}'
+  
+  CreateDatadogStackSet:
+    Type: 'Custom::DatadogStackSet'
+    DependsOn:
+      - DatadogStackSetLambdaExecutePermission
+    Properties:
+      ServiceToken: !GetAtt 'DatadogStackSetLambda.Arn'
+      datadogUrl: !Ref DatadogTemplateURL
+      AccountId: !Ref 'AWS::AccountId'
+
+
+  DatadogStackSetLambdaExecutePermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !GetAtt 'DatadogStackSetLambda.Arn'
+      Principal: 'cloudformation.amazonaws.com'
+      SourceAccount: !Ref 'AWS::AccountId'
+      
+  DatadogStackSetLambda:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: index.handler
+      Runtime: python3.7
+      MemorySize: 256
+      Role: !GetAtt 'DatadogStackSetLambdaExecutionRole.Arn'
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import botocore
+          import os
+          import cfnresponse
+          import logging
+          from botocore.vendored import requests
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+    
+          def get_secret_value(key='DatadogSecretString1'):
+              secretsmanager = boto3.client('secretsmanager')
+              secret_list = secretsmanager.list_secrets()['SecretList']
+              output = {}
+              for s in secret_list:
+                  if key in s.values():
+                      output = secretsmanager.get_secret_value(SecretId=key)['SecretString']
+              return(output)
+
+          def handler(event, context):
+          
+              AccountId = event['ResourceProperties']['AccountId']
+              datadogUrl = event['ResourceProperties']['datadogUrl']
+
+              cList = ['CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM', 'CAPABILITY_AUTO_EXPAND']
+              ExecRole = 'AWSControlTowerExecution'
+              AdminRoleARN = 'arn:aws:iam::' + AccountId + ':role/service-role/AWSControlTowerStackSetRole'
+              logger.info('EVENT Received: {}'.format(event))
+              response_data = {}
+              eventType = event['RequestType']
+
+              if event['RequestType'] == "Delete":
+                  logger.info(f'Request Type is Delete; unsupported')
+                  cfnsend(event, context, 'SUCCESS', response_data)
+                  return event
+
+              if eventType != 'Delete':
+                  logger.info('Event = ' + event['RequestType'])
+                  datadog_paramList = []
+                  secretList = json.loads(get_secret_value('DatadogSecretString1'))
+                  for s in secretList.keys():
+                      keyDict = {}
+                      keyDict['ParameterKey'] = s
+                      keyDict['ParameterValue'] = secretList[s]
+                      datadog_paramList.append(keyDict)
+                  logger.info('Datadog ParamList:{}'.format(datadog_paramList))
+                  cloudformation = boto3.client('cloudformation')
+                  datadog_result = cloudformation.create_stack_set(StackSetName='DataDogForwarder', \
+                                      Description = 'Integration Role and Forwarder for Datadog', \
+                                      TemplateURL = datadogUrl, \
+                                      Parameters = datadog_paramList, \
+                                      AdministrationRoleARN = AdminRoleARN, \
+                                      ExecutionRoleName = ExecRole, \
+                                      Capabilities = cList )
+
+                  logger.info('Datadog Stackset: {}'.format(datadog_result))
+                  cfnsend(event, context, 'SUCCESS', response_data)
+                  return "Success"
+
+              cfnsend(event, context, 'SUCCESS', response_data)
+              return "Success"
+
+     
+          def cfnsend(event, context, responseStatus, responseData, reason=None):
+              if 'ResponseURL' in event:
+                  responseUrl = event['ResponseURL']
+                  # Build out the response json
+                  responseBody = {}
+                  responseBody['Status'] = responseStatus
+                  responseBody['Reason'] = reason or 'CWL Log Stream =' + context.log_stream_name
+                  responseBody['PhysicalResourceId'] = context.log_stream_name
+                  responseBody['StackId'] = event['StackId']
+                  responseBody['RequestId'] = event['RequestId']
+                  responseBody['LogicalResourceId'] = event['LogicalResourceId']
+                  responseBody['Data'] = responseData
+                  json_responseBody = json.dumps(responseBody)
+
+                  logger.info(f'Response body: + {json_responseBody}')
+
+                  headers = {
+                      'content-type': '',
+                      'content-length': str(len(json_responseBody))
+                  }
+                  # Send response back to CFN
+                  try:
+                      response = requests.put(responseUrl,
+                                              data=json_responseBody,
+                                              headers=headers)
+                      logger.info(f'Status code: {response.reason}')
+                  except Exception as e:
+                      logger.info(f'send(..) failed executing requests.put(..):  {str(e)}')
+  
+
+  DatadogStackSetLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: DatadogStackSetLambdaExecutionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+            Condition: {}
+      Path: /
+      Policies:
+        - PolicyName: GetSecretValue
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Sid: Secrets1
+              Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Ref DatadogSecretString1
+        - PolicyName: ListSecrets
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Sid: Secrets2
+              Effect: Allow
+              Action:
+                - secretsmanager:ListSecrets
+              Resource: '*'
+        - PolicyName: CloudFormation_ops
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Sid: VisualEditor2
+              Effect: Allow
+              Action:
+                - cloudformation:CreateStackSet
+                - cloudformation:CreateStackInstances
+                - cloudformation:DescribeStackSet
+                - cloudformation:ListStackInstances
+                - cloudformation:DeleteStackInstances
+                - cloudformation:DeleteStackSet
+              Resource: !Join [':', ['arn:aws:cloudformation', !Ref 'AWS::Region', !Ref 'AWS::AccountId', 'stackset/*:*']]
+        - PolicyName: Pass_Role
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Sid: VisualEditor3
+              Effect: Allow
+              Action:
+                - iam:PassRole
+              Resource: !Join [':', ['arn:aws:iam:', !Ref "AWS::AccountId", 'role/service-role/AWSControlTowerStackSetRole']]
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AWSOrganizationsReadOnlyAccess
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+
+
+  CaptureControlTowerLifeCycleEvents:
+    DependsOn:
+    - TriggerCustomizationsOnLifeCycleEvent
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Capture Control Tower LifeCycle Events and Trigger an Action
+      EventPattern:
+        detail:
+          eventName:
+          - CreateManagedAccount
+          - UpdateManagedAccount
+          - EnableGuardrail
+          - DisableGuardrail
+          - SetupLandingZone
+          - UpdateLandingZone
+          - RegisterOrganizationalUnit
+          - DeregisterOrganizationalUnit
+          eventSource:
+          - controltower.amazonaws.com
+        detail-type:
+        - AWS Service Event via CloudTrail
+        source:
+        - aws.controltower
+      Name: CaptureControlTowerLifeCycleEvents
+      State: ENABLED
+      Targets:
+      - Arn: !GetAtt "TriggerCustomizationsOnLifeCycleEvent.Arn"
+        Id: IDCaptureControlTowerLifeCycleEvents
+
+  LambdaRoleToCaptureEvents:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: LambdaRoleToCaptureEvents
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+            Condition: {}
+      Path: /
+      Policies:
+        - PolicyName: inline-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'cloudformation:CreateStackInstances'
+                Resource: !Join [':',['arn:aws:cloudformation', !Ref 'AWS::Region', !Ref 'AWS::AccountId', 'stackset/*:*']]
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  TriggerCustomizationsOnLifeCycleEvent:
+    DependsOn:
+    - LambdaRoleToCaptureEvents
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import logging
+          LOGGER = logging.getLogger()
+          LOGGER.setLevel(logging.INFO)
+          stackset_list = ['DataDogForwarder']
+          result = {"ResponseMetadata":{"HTTPStatusCode":"400"}}
+          def lambda_handler(event, context):
+              # TODO implement
+              masterAcct = event['account']
+              eventDetails = event['detail']
+              regionName = eventDetails['awsRegion']
+              eventName = eventDetails['eventName']
+              srvEventDetails = eventDetails['serviceEventDetails']
+              if eventName == 'CreateManagedAccount':
+                  newAccInfo = srvEventDetails['createManagedAccountStatus']
+                  cmdStatus = newAccInfo['state']
+                  if cmdStatus == 'SUCCEEDED':
+                      '''Sucessful event recieved'''
+                      ouInfo = newAccInfo['organizationalUnit']
+                      ouName = ouInfo['organizationalUnitName']
+                      odId = ouInfo['organizationalUnitId']
+                      accId = newAccInfo['account']['accountId']
+                      accName = newAccInfo['account']['accountName']
+                      CFT = boto3.client('cloudformation')
+                      for item in stackset_list:
+                          try:
+                              result = CFT.create_stack_instances(StackSetName=item, Accounts=[accId], Regions=[regionName])
+                              LOGGER.info('Processed {} Sucessfully'.format(item))
+                          except Exception as e:
+                              LOGGER.error('Unable to launch in:{}, REASON: {}'.format(item, e))
+                  else:
+                      '''Unsucessful event recieved'''
+                      LOGGER.info('Unsucessful Event Recieved. SKIPPING :{}'.format(event))
+                      return(False)
+              else:
+                  LOGGER.info('Control Tower Event Captured :{}'.format(event))
+      Handler: index.lambda_handler
+      MemorySize: 128
+      Role: !GetAtt "LambdaRoleToCaptureEvents.Arn"
+      Runtime: python3.7
+      Timeout: 60
+
+  PermissionForEventsToInvokeLambdachk:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt "TriggerCustomizationsOnLifeCycleEvent.Arn"
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt "CaptureControlTowerLifeCycleEvents.Arn"
+
+
+#--------------------------------------------------------------------------------------------------------------------------------------------
+# Control Tower Lifecycle Events - CloudWatch Logs Metric Filter. Creates an alarm that publishes to SNS in Control Tower Master account
+# Currently set to email as a subscriber. Can set to Datadog Forwarder Lambda as subscriber
+# --------------------------------------------------------------------------------------------------------------------------------------------
+# SNS topic for CloudWatch Alarm Notifications
+  ControlTowerLifecycleTopic:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      DisplayName: ControlTowerLifecycleTopic
+      TopicName: ControlTowerLifecycleTopic
+
+# Email Subscription for SNS topic
+  ControlTowerAlarmEmailSubscription:
+    Type: 'AWS::SNS::Subscription'
+    Properties:
+      Protocol: email
+      Endpoint: !Ref EmailAddress
+      TopicArn: !Ref ControlTowerLifecycleTopic
+
+# CloudWatch Log Metric Filter and CloudWatch Alarm for Control Tower Lifecycle Events
+  ControlTowerLifecycleEventAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: Control Tower Lifecycle Event Detection
+      AlarmDescription: Alarm if Control Tower Lifecycle Event occurs
+      MetricName: ControlTowerLifecycleEventCount
+      Namespace: LogMetrics
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref ControlTowerLifecycleTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+  IAMPolicyChangesFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref ControlTowerCloudWatchLogGroup
+      FilterPattern: |-
+        {
+          ($.eventName=CreateManagedAccount) ||
+          ($.eventName=UpdateManagedAccount) ||
+          ($.eventName=EnableGuardrail) ||
+          ($.eventName=EnableGuardrail) ||
+          ($.eventName=DisableGuardrail) ||
+          ($.eventName=UpdateLandingZone) ||
+          ($.eventName=RegisterOrganizationalUnit) ||
+          ($.eventName=DeregisterOrganizationalUnit)
+        }
+      MetricTransformations:
+      - MetricValue: '1'
+        MetricNamespace: LogMetrics
+        MetricName: ControlTowerLifecycleEventCount
