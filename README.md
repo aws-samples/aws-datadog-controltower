@@ -32,24 +32,29 @@
 ![](images/arch-diagram1.png)
 
 
-## Set up
+## Set up and Test
 
-1. **Validate** 
- * Login to the AWS Console from the Team Dashboard
- 	-  Ensure that the CloudFormation template mod-* has fully deployed. Wait to proceed further until the template has successfully deployed
- 	-  Check that the attack has been initiated in the AWS environment:
- 		- CloudTrail (called 'GameDayTrail') has Log File Validation Disabled and CloudWatch Logs Monitoring Disabled
- 		- KMS Customer Master Key (with description 'Test Key Rotation') has key rotation disabled
- 		- Elastic IP has an unassociated Instance ID
-
-2. **Detect and Remediate Attack** 
- * Login to the AWS Console from the Team Dashboard:
-    - Turn on AWS Config
- 	- Deploy the **'mg-gameday-module3-configremediations-v1'** CloudFormation Template
- 	- Validate that AWS Config Managed Rules have been provisioned. Each Config Rule has an associated AWS Systems Manager Automation associated with it as a remediation
- 	- After a few minutes check each of the misconfigured resources from the attack. Ensure that the attack has been thwarted and all resources are in a compliant state. Check the AWS Config Dashboard to see how Config has detected and then remediated the violations
-
-3. **Earn Points** 
- * On the Team Dashboard:
-    - Enter the name of the CloudFormation template that you deployed and click update
-    - The Game will check the misconfigured resources have been updated and will award x points each for each remediated resource 
+1. **Datadog - Initial Setup** 
+ * From https://app.datadoghq.com/account/settings#api create an API Key
+2. ** AWS Setup - AWS Control Tower Master account**
+ * Launch the aws-datadog-controltower-v1.yml template in the AWS Control Tower Master account
+ 	-  Enter the API Key above. Accept all defaults
+ 	-  Ensure that a AWS CloudFormation StackSet is successfully created for the Datadog forwarder template
+ 	-  Ensure that a Amazon CloudWatch Events rule is successfully created with an AWS Lambda target to handle Control Tower Lifecycle events
+  * Launch the aws-datadog-ct-cloudtrailcwlogs-v1 in the AWS Control Tower Master Account. Enter your email as input.
+3. **Test - Create a Lifecycle Event - Add a managed account** 
+ * From the AWS Control Tower Master Account:
+    - Use Account Factory or quick provision or Service Catalog to create a  new managed account in the AWS Control Tower Organization OR
+    - Use Service Catalog (AccountFactory Product) to update an existing managed account - for e.g. change the OU of an existing managed account
+ 	- This can take up to 30 mins for the account to be sucessfully created and the AWS Control Tower Lifecycle Event to trigger
+ 	- Login to the AWS Control Tower managed account - 
+ 		- Validate that an AWS CloudFormation stack instance has been provisioned that launches the Datadog Forwarder template in the managed account. 
+ 		- Validate that a Datadog Integration Role (DatadogIntegrationRole IAM role) has been created in the managed account.  This is a cross account role where the trusted account ID - 464622532012 corresponds to the Datadog control plane.
+4. **Datadog - Complete Setup** 
+ * From https://app.datadoghq.com/account/settings#integrations/amazon-web-services click on 'Add Account'->'Role Delegation'->Manual. Add the Account ID of the AWS Control Tower managed account and Role Name(DatadogIntegrationRole).Copy the generated External ID. 
+ 	- Go back to the AWS Control Tower managed account and update the External ID in the DatadogIntegrationRole with the External ID that was generated in the Datadog console
+ 	- Click on "Update Configuration" in Datadog console to complete the setup
+5. **Test - Create a Control Tower Lifecyle Event** 
+ * From the AWS Control Tower Master Account:
+    - Create a Control Tower Lifecycle event that is not related to creating/updating managed account. For e.g. enable a new detective non mandatory Guardrail on an OU.
+    - For quick validation - check that an email has been received which describes the event as logged in CloudTrail
