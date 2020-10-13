@@ -184,10 +184,6 @@ Resources:
       MemorySize: 256
       Role: !GetAtt 'DatadogStackSetLambdaExecutionRole.Arn'
       Timeout: 60
-      Environment:
-        Variables:
-          DD_APIKEY : !Ref DatadogAPIKey
-          DD_APPLICATIONKEY : !Ref DatadogApplicationKey
       Code:
         ZipFile: |
           import json
@@ -415,16 +411,34 @@ Resources:
       Code:
         ZipFile: |
           import json
+          import os
           import boto3
           import logging
+          import urllib.request
+
           LOGGER = logging.getLogger()
           LOGGER.setLevel(logging.INFO)
           stackset_list = ['DataDogForwarderv1']
           result = {"ResponseMetadata":{"HTTPStatusCode":"400"}}
           
-          def get_datadog_external_id():
-              output = '222f75e0e09384e098705e9041976e4ef'
-              return(output)
+          def get_datadog_external_id(accountid):
+              api_key = os.environ['API_KEY']
+              account_id = accountid
+              application_key = os.environ['APPLICATION_KEY']
+              datadogPOSTUrl = 'https://app.datadoghq.com/api/v1/integration/aws?api_key=' + api_key + '&application_key=' + application_key 
+              role_name = os.environ['INTEGRATIONROLE_NAME']
+              payload = {
+                    'account_id': account_id,
+                    'role_name': role_name
+                }
+              data_json=json.dumps(payload)
+              req = urllib.request.Request(url = datadogPOSTUrl, data = bytes(data_json.encode("utf-8")), method = "POST")
+              response_data= {}
+              with urllib.request.urlopen(req) as resp:
+                response_data = json.loads(resp.read().decode("utf-8"))
+                print(response_data)
+              output = response_data['external_id']
+              return output
 
           def lambda_handler(event, context):
               # TODO implement
@@ -446,8 +460,7 @@ Resources:
                       CFT = boto3.client('cloudformation')
                       for item in stackset_list:
                           try:
-                              external_id = get_datadog_external_id()
-                              
+                              external_id = get_datadog_external_id(accountid=accId)  
                               datadog_overrideparamList = []
                               keyDict = {}
                               keyDict['ParameterKey'] = 'ExternalId'
@@ -476,8 +489,8 @@ Resources:
                       for item in stackset_list:
                           try:
                               
-                              external_id = get_datadog_external_id()
-                              
+                              external_id = get_datadog_external_id(accountid=accId)
+                
                               datadog_overrideparamList = []
                               keyDict = {}
                               keyDict['ParameterKey'] = 'ExternalId'
@@ -500,6 +513,11 @@ Resources:
       Role: !GetAtt "LambdaRoleToCaptureEvents.Arn"
       Runtime: python3.7
       Timeout: 60
+      Environment:
+        Variables:
+          API_KEY : !Ref DatadogAPIKey
+          APPLICATION_KEY : !Ref DatadogApplicationKey
+          INTEGRATIONROLE_NAME : !Ref IAMRoleName
 
   PermissionForEventsToInvokeLambdachk:
     Type: AWS::Lambda::Permission
