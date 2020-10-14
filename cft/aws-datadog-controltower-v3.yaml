@@ -487,16 +487,7 @@ Resources:
                       accName = newAccInfo['account']['accountName']
                       CFT = boto3.client('cloudformation')
                       for item in stackset_list:
-                          try:
-                              
-                              external_id = get_datadog_external_id(accountid=accId)
-                
-                              datadog_overrideparamList = []
-                              keyDict = {}
-                              keyDict['ParameterKey'] = 'ExternalId'
-                              keyDict['ParameterValue'] = external_id
-                              datadog_overrideparamList.append(keyDict)
-                              
+                          try:                              
                               result = CFT.create_stack_instances(StackSetName=item, Accounts=[accId], Regions=[regionName])
                               LOGGER.info('Processed {} Sucessfully'.format(item))
                           except Exception as e:
