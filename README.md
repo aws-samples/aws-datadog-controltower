@@ -55,7 +55,7 @@
  	- Login to the AWS Control Tower managed account - 
  		- Validate that an AWS CloudFormation stack instance has been provisioned that launches the Datadog Forwarder template in the managed account. 
  		- Validate that a Datadog Integration Role (DatadogIntegrationRole IAM role) has been created in the managed account.  This is a cross account role where the trusted account ID - 464622532012 corresponds to the Datadog control plane.
-4. **Datadog - Complete Setup - Only required if v1 version is used. Not required with v3 version** 
+4. **Datadog - Complete Setup - Only required if v1 version is used. Not required with v4 version** 
  * From https://app.datadoghq.com/account/settings#integrations/amazon-web-services click on 'Add Account'->'Role Delegation'->Manual. Add the Account ID of the AWS Control Tower managed account and Role Name(DatadogIntegrationRole).Copy the generated External ID. 
  	- Go back to the AWS Control Tower managed account and update the External ID in the DatadogIntegrationRole with the External ID that was generated in the Datadog console
  	- Click on "Update Configuration" in Datadog console to complete the setup
