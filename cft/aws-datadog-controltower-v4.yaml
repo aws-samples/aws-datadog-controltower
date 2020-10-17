@@ -451,8 +451,13 @@ Resources:
               regionName = eventDetails['awsRegion']
               eventName = eventDetails['eventName']
               srvEventDetails = eventDetails['serviceEventDetails']
-              if eventName == 'CreateManagedAccount':
-                  newAccInfo = srvEventDetails['createManagedAccountStatus']
+              if eventName == 'CreateManagedAccount' or eventName == 'UpdateManagedAccount':
+                  newAccInfo = {}
+                  LOGGER.info('Event Processed Sucessfully')
+                  if eventName == 'CreateManagedAccount':
+                      newAccInfo = srvEventDetails['createManagedAccountStatus']
+                  if eventName == 'UpdateManagedAccount':
+                      newAccInfo = srvEventDetails['updateManagedAccountStatus']
                   cmdStatus = newAccInfo['state']
                   if cmdStatus == 'SUCCEEDED':
                       '''Sucessful event recieved'''
@@ -470,7 +475,6 @@ Resources:
                               keyDict['ParameterKey'] = 'ExternalId'
                               keyDict['ParameterValue'] = external_id
                               datadog_overrideparamList.append(keyDict)
-                              
                               result = CFT.create_stack_instances(StackSetName=item, ParameterOverrides=datadog_overrideparamList,Accounts=[accId], Regions=[regionName])
                               LOGGER.info('Processed {} Sucessfully'.format(item))
                           except Exception as e:
