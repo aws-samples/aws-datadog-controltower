@@ -1,5 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: AWS Control Tower Lifecycle Event Integration for Datadog
+Description: AWS Control Tower Lifecycle Events for Datadog (MPCT-yseaalnf)
+
 
 
 # ----------------------------------------------------------------------------------------------------------

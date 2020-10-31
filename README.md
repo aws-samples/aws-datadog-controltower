@@ -35,11 +35,10 @@
 1. **Datadog - Initial Setup** 
  * From https://app.datadoghq.com/account/settings#api create an API Key
 2. **AWS Setup - AWS Control Tower Master account**
- * Launch the aws-datadog-controltower-v1.yml template in the AWS Control Tower Master account
+ * Launch the aws-datadog-controltower.yml template in the AWS Control Tower Master account
  	-  Enter the API Key above. Accept all defaults
  	-  Ensure that a AWS CloudFormation StackSet is successfully created for the Datadog forwarder template
- 	-  Ensure that a Amazon CloudWatch Events rule is successfully created with an AWS Lambda target to handle Control Tower Lifecycle events
-  * Launch the aws-datadog-ct-cloudtrailcwlogs-v1 in the AWS Control Tower Master Account. Enter your email as input.
+ 	-  Ensure that a Amazon CloudWatch Events rule is successfully created with an AWS Lambda target to handle Control 
 3. **Test - Create a Lifecycle Event - Add a managed account** 
  * From the AWS Control Tower Master Account:
     - Use Account Factory or quick provision or Service Catalog to create a  new managed account in the AWS Control Tower Organization OR
