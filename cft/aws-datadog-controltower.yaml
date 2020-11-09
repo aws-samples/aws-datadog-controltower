@@ -27,6 +27,8 @@ Description: AWS Control Tower Lifecycle Events for Datadog (MPCT-yseaalnf)
 #        Datadog stackset in the master account
 #     
 ##
+#  
+## 
 ## License:
 ## This code is made available under the MIT-0 license. See the LICENSE file.
 # ------------------------------------------------------------...............................................
@@ -97,16 +99,6 @@ Parameters:
     Description: >-
       The Datadog Forwarder Lambda function name. DO NOT change when updating an existing CloudFormation stack,
       otherwise the current forwarder function will be replaced and all the triggers will be lost.
-  
-  DatadogAPIKey:
-    Description: Datadog API Key for the AWS Control Tower Master Account
-    Type: String
-    Default: '16d7d2476a1d5187d14a0c0803d94e0d'
-
-  DatadogApplicationKey:
-    Description: Datadog Application Key for the AWS Control Tower Master Account
-    Type: String
-    Default: '271798b8a8a9907afbfd7d61233f982352152b17'
 
   InstallDatadogPolicyMacro:
     Type: String
