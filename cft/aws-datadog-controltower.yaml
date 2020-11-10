@@ -52,9 +52,6 @@ Parameters:
       API key for the Datadog account (find at
       https://app.datadoghq.com/account/settings#api)
     Type: String
-    Default: "16d7d2476a1d5187d14a0c0803d94e0d"
-    AllowedPattern: .+
-    ConstraintDescription: DdApiKey is required
   DdSite:
     Type: String
     Default: datadoghq.com
@@ -99,11 +96,10 @@ Parameters:
     Description: >-
       The Datadog Forwarder Lambda function name. DO NOT change when updating an existing CloudFormation stack,
       otherwise the current forwarder function will be replaced and all the triggers will be lost.
-
   DatadogApplicationKey:
     Description: Datadog Application Key for the AWS Control Tower Master Account
     Type: String
-    Default: '271798b8a8a9907afbfd7d61233f982352152b17'
+
 
   InstallDatadogPolicyMacro:
     Type: String
