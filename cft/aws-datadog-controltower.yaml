@@ -8,10 +8,10 @@ Description: AWS Control Tower Lifecycle Events for Datadog (MPCT-yseaalnf)
 #   
 #   This templates allows newly added Control Tower accounts to be managed automatically by Datadog
 #                                  
-#   This template provisions infrastructure in the Control Tower Master account that allows creation of Datadog 
+#   This template provisions infrastructure in the AWS Control Tower Management account that allows creation of Datadog 
 #   stack instances in Control Tower managed accounts whenever a new Control Tower managed account is added
 #  
-#  1- Creates a Datadog Stackset in the Control Tower Master Account 
+#  1- Creates a Datadog Stackset in the AWS Control Tower Management Account 
 #  2- Provisions a CloudWatchEvents Rule that is triggered based on a Control Tower Lifecycle Event
 #  3- Provisions a Lifecyle Lambda as a target for the CloudWatch Events Rule.
 #    - The Lifecycle Lambda deploys a Datadog stack in the newly added Control Tower managed account--thus placing 
@@ -24,7 +24,7 @@ Description: AWS Control Tower Lifecycle Events for Datadog (MPCT-yseaalnf)
 #  The infrastructure provisioned by this template in Steps 1-3 allows for a Control Tower lifecycle
 #  event trigger (CreateManagedAccount) to 
 #       - Trigger the Lifecyle Lambda that creates Datadog stack instance in the managed account based on the
-#        Datadog stackset in the master account
+#        Datadog stackset in the Management account
 #     
 ##
 #  
@@ -100,6 +100,11 @@ Parameters:
       The Datadog Forwarder Lambda function name. DO NOT change when updating an existing CloudFormation stack,
       otherwise the current forwarder function will be replaced and all the triggers will be lost.
 
+  DatadogApplicationKey:
+    Description: Datadog Application Key for the AWS Control Tower Master Account
+    Type: String
+    Default: '271798b8a8a9907afbfd7d61233f982352152b17'
+
   InstallDatadogPolicyMacro:
     Type: String
     Default: true
@@ -119,7 +124,7 @@ Resources:
 # ---------------------------------------------------------------------------------------------------
 #  
 #  1- Store Parameters for the Datadog StackSet in AWS Secrets Manager
-#  2- Create a Datadog StackSet in the Control Tower Master Account
+#  2- Create a Datadog StackSet in the Control Tower Management Account
 #      - The Datadog StackSet is based on the Datadog main.yaml template that is provided by Datadog. 
 #      - The Datadog main.yaml template provisions the Datadog Integration Role and the Datadog Forwarder
 # --------------------------------------------------------------------------------------------------
@@ -484,7 +489,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          API_KEY : !Ref DatadogAPIKey
+          API_KEY : !Ref DdApiKey
           APPLICATION_KEY : !Ref DatadogApplicationKey
           INTEGRATIONROLE_NAME : !Ref IAMRoleName
 
