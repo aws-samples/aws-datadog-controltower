@@ -99,7 +99,20 @@ Parameters:
   DatadogApplicationKey:
     Description: Datadog Application Key for the AWS Control Tower Master Account
     Type: String
-    Default: '271798b8a8a9907afbfd7d61233f982352152b17'
+
+
+  InstallDatadogPolicyMacro:
+    Type: String
+    Default: true
+    AllowedValues:
+      - true
+      - false
+    Description: If you already deployed a stack using this template, set this parameter to false to skip the installation of the DatadogPolicy Macro again.
+Conditions:
+  ShouldInstallDatadogPolicyMacro:
+    Fn::Equals:
+      - Ref: InstallDatadogPolicyMacro
+      - true
 
 
 Resources:
@@ -203,6 +216,11 @@ Resources:
               response_data = {}
               eventType = event['RequestType']
 
+              if event['RequestType'] == "Delete":
+                  logger.info(f'Request Type is Delete; unsupported')
+                  cfnsend(event, context, 'SUCCESS', response_data)
+                  return event
+
               if eventType != 'Delete':
                   logger.info('Event = ' + event['RequestType'])
                   datadog_paramList = []
@@ -225,11 +243,6 @@ Resources:
                   logger.info('Datadog Stackset: {}'.format(datadog_result))
                   cfnsend(event, context, 'SUCCESS', response_data)
                   return "Success"
-
-              else:
-                  logger.info(f'Request Type is Delete; unsupported')
-                  cfnsend(event, context, 'SUCCESS', response_data)
-                  return event
 
               cfnsend(event, context, 'SUCCESS', response_data)
               return "Success"
@@ -305,7 +318,12 @@ Resources:
               Effect: Allow
               Action:
                 - cloudformation:CreateStackSet
-              Resource: !Join [':', ['arn:aws:cloudformation', !Ref 'AWS::Region', !Ref 'AWS::AccountId', 'stackset/DataDogForwarderv1:*:*']]
+                - cloudformation:CreateStackInstances
+                - cloudformation:DescribeStackSet
+                - cloudformation:ListStackInstances
+                - cloudformation:DeleteStackInstances
+                - cloudformation:DeleteStackSet
+              Resource: !Join [':', ['arn:aws:cloudformation', !Ref 'AWS::Region', !Ref 'AWS::AccountId', 'stackset/*:*']]
         - PolicyName: Pass_Role
           PolicyDocument:
             Version: '2012-10-17'
@@ -395,8 +413,8 @@ Resources:
           import logging
           import urllib.request
 
-          logger = logging.getLogger()
-          logger.setLevel(logging.INFO)
+          LOGGER = logging.getLogger()
+          LOGGER.setLevel(logging.INFO)
           stackset_list = ['DataDogForwarderv1']
           result = {"ResponseMetadata":{"HTTPStatusCode":"400"}}
           
@@ -409,10 +427,10 @@ Resources:
               payload = {
                     'account_id': account_id,
                     'role_name': role_name
-              }
+                }
               data_json=json.dumps(payload)
               req = urllib.request.Request(url = datadogPOSTUrl, data = bytes(data_json.encode("utf-8")), method = "POST")
-              response_data = {}
+              response_data= {}
               with urllib.request.urlopen(req) as resp:
                 response_data = json.loads(resp.read().decode("utf-8"))
                 print(response_data)
@@ -420,6 +438,7 @@ Resources:
               return output
 
           def lambda_handler(event, context):
+              # TODO implement
               masterAcct = event['account']
               eventDetails = event['detail']
               regionName = eventDetails['awsRegion']
@@ -427,7 +446,7 @@ Resources:
               srvEventDetails = eventDetails['serviceEventDetails']
               if eventName == 'CreateManagedAccount' or eventName == 'UpdateManagedAccount':
                   newAccInfo = {}
-                  logger.info('Event Processed Sucessfully')
+                  LOGGER.info('Event Processed Sucessfully')
                   if eventName == 'CreateManagedAccount':
                       newAccInfo = srvEventDetails['createManagedAccountStatus']
                   if eventName == 'UpdateManagedAccount':
@@ -435,8 +454,12 @@ Resources:
                   cmdStatus = newAccInfo['state']
                   if cmdStatus == 'SUCCEEDED':
                       '''Sucessful event recieved'''
+                      ouInfo = newAccInfo['organizationalUnit']
+                      ouName = ouInfo['organizationalUnitName']
+                      odId = ouInfo['organizationalUnitId']
                       accId = newAccInfo['account']['accountId']
-                      cloudformation = boto3.client('cloudformation')
+                      accName = newAccInfo['account']['accountName']
+                      CFT = boto3.client('cloudformation')
                       for item in stackset_list:
                           try:
                               external_id = get_datadog_external_id(accountid=accId)  
@@ -445,16 +468,16 @@ Resources:
                               keyDict['ParameterKey'] = 'ExternalId'
                               keyDict['ParameterValue'] = external_id
                               datadog_overrideparamList.append(keyDict)
-                              result = cloudformation.create_stack_instances(StackSetName=item, ParameterOverrides=datadog_overrideparamList,Accounts=[accId], Regions=[regionName])
-                              logger.info('Processed {} Sucessfully'.format(item))
+                              result = CFT.create_stack_instances(StackSetName=item, ParameterOverrides=datadog_overrideparamList,Accounts=[accId], Regions=[regionName])
+                              LOGGER.info('Processed {} Sucessfully'.format(item))
                           except Exception as e:
-                              logger.error('Unable to launch in:{}, REASON: {}'.format(item, e))
+                              LOGGER.error('Unable to launch in:{}, REASON: {}'.format(item, e))
                   else:
                       '''Unsucessful event recieved'''
-                      logger.info('Unsucessful Event Recieved. SKIPPING :{}'.format(event))
+                      LOGGER.info('Unsucessful Event Recieved. SKIPPING :{}'.format(event))
                       return(False)
               else:
-                  logger.info('Control Tower Event Captured :{}'.format(event))
+                  LOGGER.info('Control Tower Event Captured :{}'.format(event))
       Handler: index.lambda_handler
       MemorySize: 128
       Role: !GetAtt "LambdaRoleToCaptureEvents.Arn"
