@@ -212,10 +212,12 @@ Resources:
                   datadog_paramList = []
                   secretList = json.loads(get_secret_value('DatadogSecretString1'))
                   for s in secretList.keys():
+                    if s != 'DatadogApplicationKey':
                       keyDict = {}
                       keyDict['ParameterKey'] = s
                       keyDict['ParameterValue'] = secretList[s]
                       datadog_paramList.append(keyDict)
+                  
                   logger.info('Datadog ParamList:{}'.format(datadog_paramList))
                   cloudformation = boto3.client('cloudformation')
                   datadog_result = cloudformation.create_stack_set(StackSetName='DataDogForwarderv1', \
