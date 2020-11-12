@@ -41,7 +41,7 @@ Parameters:
     Default: 'https://datadog-cloudformation-template.s3.amazonaws.com/aws/main.yaml'
   ExternalId:
     Description: >-
-      External ID for the Datadog role (generate at
+      REQUIRED. Default External ID for the Datadog role (generate at
       https://app.datadoghq.com/account/settings#integrations/amazon-web-services)
     Type: String
     AllowedPattern: .+
@@ -49,7 +49,12 @@ Parameters:
     ConstraintDescription: ExternalId is required
   DdApiKey:
     Description: >-
-      API key for the Datadog account (find at
+      REQUIRED. API key for the Datadog account (find at
+      https://app.datadoghq.com/account/settings#api)
+    Type: String
+  DatadogApplicationKey:
+    Description: >-
+      REQUIRED. Application key for the Datadog account (find at
       https://app.datadoghq.com/account/settings#api)
     Type: String
   DdSite:
@@ -96,10 +101,7 @@ Parameters:
     Description: >-
       The Datadog Forwarder Lambda function name. DO NOT change when updating an existing CloudFormation stack,
       otherwise the current forwarder function will be replaced and all the triggers will be lost.
-  DatadogApplicationKey:
-    Description: Datadog Application Key for the AWS Control Tower Master Account
-    Type: String
-    Default: '271798b8a8a9907afbfd7d61233f982352152b17'
+
 
 
 Resources:
@@ -124,6 +126,8 @@ Resources:
           - Ref: ExternalId
           - '","DdApiKey": "'
           - Ref: DdApiKey
+          - '","DatadogApplicationKey": "'
+          - Ref: DatadogApplicationKey
           - '","DdSite": "'
           - Ref: DdSite
           - '","Permissions": "'
@@ -400,12 +404,36 @@ Resources:
           stackset_list = ['DataDogForwarderv1']
           result = {"ResponseMetadata":{"HTTPStatusCode":"400"}}
           
+          def get_secret_value(key='DatadogSecretString1'):
+              secretsmanager = boto3.client('secretsmanager')
+              secret_list = secretsmanager.list_secrets()['SecretList']
+              output = {}
+              for s in secret_list:
+                  if key in s.values():
+                      output = secretsmanager.get_secret_value(SecretId=key)['SecretString']
+              return(output)
+
           def get_datadog_external_id(accountid):
-              api_key = os.environ['API_KEY']
+              
+              secretList = json.loads(get_secret_value('DatadogSecretString1'))
+              api_key=""
+              application_key=""
+              role_name=""
+              api_key_key='DdApiKey'
+              application_key_key='DatadogApplicationKey'
+              role_name_key='IAMRoleName'
+              
+              if api_key_key in secretList:
+                  api_key = secretList[api_key_key]
+              if application_key_key in secretList:
+                  application_key = secretList[application_key_key]
+              if role_name_key in secretList:
+                  role_name = secretList[role_name_key]
+
               account_id = accountid
-              application_key = os.environ['APPLICATION_KEY']
+
               datadogPOSTUrl = 'https://app.datadoghq.com/api/v1/integration/aws?api_key=' + api_key + '&application_key=' + application_key 
-              role_name = os.environ['INTEGRATIONROLE_NAME']
+
               payload = {
                     'account_id': account_id,
                     'role_name': role_name
@@ -460,12 +488,7 @@ Resources:
       Role: !GetAtt "LambdaRoleToCaptureEvents.Arn"
       Runtime: python3.7
       Timeout: 60
-      Environment:
-        Variables:
-          API_KEY : !Ref DdApiKey
-          APPLICATION_KEY : !Ref DatadogApplicationKey
-          INTEGRATIONROLE_NAME : !Ref IAMRoleName
-
+      
   PermissionForEventsToInvokeLambdachk:
     Type: AWS::Lambda::Permission
     Properties:
