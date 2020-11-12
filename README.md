@@ -49,6 +49,6 @@
  		- Validate that a Datadog Integration Role (DatadogIntegrationRole IAM role) has been created in the managed account.  This is a cross account role where the trusted account ID - 464622532012 corresponds to the Datadog control plane.
 
 
-## Author: 
+## Author 
 
-Kanishk Mahajan; kmmahaj@amazon.com
+Kanishk Mahajan
