@@ -27,10 +27,9 @@ Description: AWS Control Tower Lifecycle Events for Datadog (MPCT-yseaalnf)
 #        Datadog stackset in the Management account
 #     
 ##
-#  @kmmahaj
+## @author: kmmahaj@amazon.com
 ## 
-## License:
-## This code is made available under the MIT-0 license. See the LICENSE file.
+#
 # ------------------------------------------------------------...............................................
 
 Parameters:
