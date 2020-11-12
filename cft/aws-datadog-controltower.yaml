@@ -421,9 +421,12 @@ Resources:
               api_key=""
               application_key=""
               role_name=""
+              dd_site=""
+
               api_key_key='DdApiKey'
               application_key_key='DatadogApplicationKey'
               role_name_key='IAMRoleName'
+              dd_site_key= 'DdSite'
               
               if api_key_key in secretList:
                   api_key = secretList[api_key_key]
@@ -431,10 +434,12 @@ Resources:
                   application_key = secretList[application_key_key]
               if role_name_key in secretList:
                   role_name = secretList[role_name_key]
-
+              if dd_site_key in secretList:
+                  dd_site = secretList[dd_site_key]
+              
               account_id = accountid
 
-              datadogPOSTUrl = 'https://app.datadoghq.com/api/v1/integration/aws?api_key=' + api_key + '&application_key=' + application_key 
+              datadogPOSTUrl = 'https://app.'+ dd_site + '/api/v1/integration/aws?api_key=' + api_key + '&application_key=' + application_key 
 
               payload = {
                     'account_id': account_id,
