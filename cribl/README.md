@@ -31,7 +31,6 @@
 
 1. **AWS Setup - AWS Control Tower Managed account**
  * Launch the aws-cribl-controltower.yml template in the AWS Control Tower Managed account
- 	-  Enter the API Key above. Accept all defaults
  	-  Ensure that a AWS CloudFormation StackSet is successfully created
  	-  Ensure that a Amazon CloudWatch Events rule is successfully created with an AWS Lambda target to handle Control Tower lifecycle event
 2. **Test - Create a Lifecycle Event - Add a managed account** 
