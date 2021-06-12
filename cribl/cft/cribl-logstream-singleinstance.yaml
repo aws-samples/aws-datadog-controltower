@@ -1,0 +1,307 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Cribl LogStream Single Deployment
+Parameters:
+  sshKeyPair:
+    Description: 'REQUIRED: Name of an existing EC2 key pair.'
+    Type: AWS::EC2::KeyPair::KeyName
+  amiId:
+    Description: 'OPTIONAL: Advanced setting. Leave blank unless advised to assign
+      by Cribl Support.'
+    Type: String
+
+  VpcCIDR:
+    Description: Please enter the IP range (CIDR notation) for this VPC
+    Type: String
+    Default: 10.192.0.0/16
+
+  PublicSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
+    Type: String
+    Default: 10.192.10.0/24
+
+  sshAccessCidr:
+    Type: String
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/x
+    Default: 0.0.0.0/0
+    Description: 'REQUIRED: CIDR IP range permitted to SSH access to the instance.
+      We recommend you set this value to a trusted IP range.'
+  webAccessCidr:
+    Type: String
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/x
+    Default: 0.0.0.0/0
+    Description: 'REQUIRED: The CIDR IP range permitted to access the LogStream web
+      console. We recommend you set this value to a trusted IP range.'
+  instanceType:
+    Description: EC2 instance type to provision the LogStream instance. If none specified,
+      t2.2xlarge will be used.
+    Type: String
+    Default: t2.2xlarge
+    AllowedValues:
+    - t2.2xlarge
+    - t3.2xlarge
+    - c5.4xlarge
+    - c5.2xlarge
+    - c5.xlarge
+    - c5.large
+    - c5d.4xlarge
+    - c5d.2xlarge
+    - c5d.xlarge
+    - c5d.large
+    - c5a.4xlarge
+    - c5a.2xlarge
+    - c5a.xlarge
+    - c5a.large
+    - c5ad.4xlarge
+    - c5ad.2xlarge
+    - c5ad.xlarge
+    - c5ad.large
+    ConstraintDescription: Must contain valid instance type
+  AdditionalPolicies:
+    Default: arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore,arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+    Description: A comma separated list of Policy ARNs to add to the IAM role used
+      by Logstream instances
+    Type: CommaDelimitedList
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: Instance Configuration
+      Parameters:
+      - sshKeyPair
+      - instanceType
+    - Label:
+        default: Network Configuration
+      Parameters:
+      - VpcCIDR
+      - PublicSubnet1CIDR
+      - webAccessCidr
+      - sshAccessCidr
+    - Label:
+        default: Advanced Settings
+      Parameters:
+      - AdditionalPolicies
+      - amiId
+    ParameterLabels:
+      sshKeyPair:
+        default: SSH Key Name
+      instanceType:
+        default: EC2 Instance Type
+      webAccessCidr:
+        default: Web Access CIDR
+      sshAccessCidr:
+        default: SSH Access CIDR
+
+Conditions:
+  customAmiId: !Not [!Equals [!Ref 'amiId', '']]
+Mappings:
+  RegionMap:
+    ap-northeast-1:
+      HVM64: ami-0cbe35fe3369e2cec
+    ap-northeast-2:
+      HVM64: ami-07401b38ef370952d
+    ap-south-1:
+      HVM64: ami-0f5583889909416a3
+    ap-southeast-1:
+      HVM64: ami-07922dfb076d9dff0
+    ap-southeast-2:
+      HVM64: ami-0cfad55e0f35e221c
+    ca-central-1:
+      HVM64: ami-0daedb8807c9f698c
+    eu-central-1:
+      HVM64: ami-00bad1298916d9c41
+    eu-north-1:
+      HVM64: ami-0b0eaf02f9ebd0d00
+    eu-west-1:
+      HVM64: ami-0279df2a47f474fd7
+    eu-west-2:
+      HVM64: ami-085339296b6501cfe
+    eu-west-3:
+      HVM64: ami-0f53a7a605fc2f125
+    sa-east-1:
+      HVM64: ami-017e1edfd42506bd3
+    us-east-1:
+      HVM64: ami-0bd4afca7615eaf02
+    us-east-2:
+      HVM64: ami-060fcad952f8c7ac2
+    us-west-1:
+      HVM64: ami-0045e68670bcb895f
+    us-west-2:
+      HVM64: ami-0fbc0c13309157f84
+Resources:
+  
+  VPC:
+    Type: AWS::EC2::VPC
+    DependsOn: 
+      - InternetGateway
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: 'IGW-Cribl'
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    DependsOn:
+      - VPC
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    DependsOn:
+      - VPC
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+
+  PublicRouteTable:
+    DependsOn:
+      - VPC
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+
+  ec2SingleSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Cribl LogStream Access
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: !Ref 'sshAccessCidr'
+        Description: SSH access to the LogStream instance
+      - IpProtocol: tcp
+        FromPort: 9000
+        ToPort: 9000
+        CidrIp: !Ref 'webAccessCidr'
+        Description: UI access to the LogStream instance
+      SecurityGroupEgress:
+      - IpProtocol: '-1'
+        CidrIp: 0.0.0.0/0
+        Description: Egress access
+  
+  s3DefaultDestinationBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+      - Key: Name
+        Value: Cribl LogStream default destination bucket
+  LogstreamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: !Sub '/logstream/${AWS::StackName}/'
+      ManagedPolicyArns: !Ref 'AdditionalPolicies'
+      Description: Cribl LogStream default IAM role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+      - PolicyName: S3Destinations
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:GetBucketLocation
+            Resource:
+            - !Sub '${s3DefaultDestinationBucket.Arn}'
+            - !Sub '${s3DefaultDestinationBucket.Arn}/*'
+      - PolicyName: S3Sources
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            - s3:GetBucketLocation
+            Resource: '*'
+      - PolicyName: KinesisSources
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - kinesis:Get*
+            - kinesis:List*
+            - kinesis:Describe*
+            Resource: '*'
+      Tags:
+      - Key: Name
+        Value: Cribl LogStream  IAM role
+  iamDefaultInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: !Sub '/logstream/${AWS::StackName}/'
+      Roles:
+      - !Ref 'LogstreamRole'
+  
+  ec2SingleInstance:
+    Type: AWS::EC2::Instance
+    DependsOn: 
+      - ec2SingleSecurityGroup
+    Properties:
+      ImageId: !If [customAmiId, !Ref 'amiId', !FindInMap [RegionMap, !Ref 'AWS::Region',
+          HVM64]]
+      KeyName: !Ref 'sshKeyPair'
+      InstanceType: !Ref 'instanceType'
+      IamInstanceProfile: !Ref 'iamDefaultInstanceProfile'
+      SubnetId: !Ref PublicSubnet1
+      SecurityGroupIds:
+      - !Ref ec2SingleSecurityGroup
+      Tags:
+      - Key: Name
+        Value: Cribl LogStream Single Instance
+      - Key: Purpose
+        Value: Machine data analysis
+Outputs:
+  logstreamWebUrl:
+    Value: !Sub 'http://${ec2SingleInstance.PrivateIp}:9000/login'
+    Description: Cribl LogStream Web URL (PrivateIp)
+  logstreamWebAccessCreds:
+    Value: !Sub 'admin / ${ec2SingleInstance}'
+    Description: Default Web Access Credentials
+  stackName:
+    Value: !Sub '${AWS::StackName}'
+    Description: CFN Stack Name

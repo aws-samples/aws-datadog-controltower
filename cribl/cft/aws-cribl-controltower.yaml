@@ -1,0 +1,350 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS Control Tower Lifecycle Events for Cribl (MPCT-jqowxsqq)
+
+# ----------------------------------------------------------------------------------------------------------
+#  CloudFormation Template 1 of 1 - 
+#   
+#   This templates allows newly added Control Tower accounts to be managed automatically by Cribl
+#                                  
+#   This template provisions infrastructure in the AWS Control Tower Management account that allows creation of Cribl 
+#   stack instances in Control Tower managed accounts whenever a new Control Tower managed account is added
+
+#  1- Creates a CloudKnox Stackset in the AWS Control Tower Management Account 
+#  2- Provisions a CloudWatchEvents Rule that is triggered based on a Control Tower Lifecycle Event
+#  3- Provisions a Lifecyle Lambda as a target for the CloudWatch Events Rule.
+#    - The Lifecycle Lambda deploys a Cribl stack in the newly added Control Tower managed account--thus placing 
+#      that account under CloudKnox management
+#  
+#   
+##
+## @kmmahaj
+## 
+#
+# ------------------------------------------------------------...............................................
+
+Parameters:
+  sshKeyPair:
+    Description: 'REQUIRED: Name of an existing EC2 key pair.'
+    Type: AWS::EC2::KeyPair::KeyName
+  
+  amiId:
+    Description: 'OPTIONAL: Advanced setting. Leave blank unless advised to assign
+      by Cribl Support.'
+    Type: String
+  
+  VpcCIDR:
+    Description: Please enter the IP range (CIDR notation) for this VPC
+    Type: String
+    Default: 10.192.0.0/16
+
+  PublicSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
+    Type: String
+    Default: 10.192.10.0/24
+
+  sshAccessCidr:
+    Type: String
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/x
+    Default: 0.0.0.0/0
+    Description: 'REQUIRED: CIDR IP range permitted to SSH access to the instance.
+      We recommend you set this value to a trusted IP range.'
+  webAccessCidr:
+    Type: String
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/x
+    Default: 0.0.0.0/0
+    Description: 'REQUIRED: The CIDR IP range permitted to access the LogStream web
+      console. We recommend you set this value to a trusted IP range.'
+  instanceType:
+    Description: EC2 instance type to provision the LogStream instance. If none specified,
+      t2.2xlarge will be used.
+    Type: String
+    Default: t2.2xlarge
+    AllowedValues:
+    - t2.2xlarge
+    - t3.2xlarge
+    - c5.4xlarge
+    - c5.2xlarge
+    - c5.xlarge
+    - c5.large
+    - c5d.4xlarge
+    - c5d.2xlarge
+    - c5d.xlarge
+    - c5d.large
+    - c5a.4xlarge
+    - c5a.2xlarge
+    - c5a.xlarge
+    - c5a.large
+    - c5ad.4xlarge
+    - c5ad.2xlarge
+    - c5ad.xlarge
+    - c5ad.large
+    ConstraintDescription: Must contain valid instance type
+  AdditionalPolicies:
+    Default: arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore,arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+    Description: A comma separated list of Policy ARNs to add to the IAM role used
+      by Logstream instances
+    Type: CommaDelimitedList
+  CriblTemplateURL:
+    Description: >-
+      Base URL for Cribl CloudFormation template - Logstream template url
+    Type: String
+    Default: 'https://cloudknox-controltower-template.s3.amazonaws.com/member-account.yaml'
+
+Resources:
+
+  CriblControlTowerKMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: "This is KMS Key Id used to encrypt/decrypt the Secret"
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Id: key-default-1
+        Statement:
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action:
+              - kms:Create*
+              - kms:Describe*
+              - kms:Enable*
+              - kms:List*
+              - kms:Put*
+              - kms:Update*
+              - kms:Revoke*
+              - kms:Disable*
+              - kms:Get*
+              - kms:Delete*
+              - kms:ScheduleKeyDeletion
+              - kms:CancelKeyDeletion
+            Resource: '*'
+          - Sid: Allow use of the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub ${AWS::AccountId}
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt
+              - kms:GenerateDataKey
+              - kms:CreateGrant
+              - kms:DescribeKey
+            Resource: '*'
+            Condition:
+              StringEquals:
+                kms:ViaService: !Sub secretsmanager.${AWS::Region}.amazonaws.com
+                kms:CallerAccount: !Sub ${AWS::AccountId}
+
+  CriblControlTowerKMSAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/Cribl-Control-Tower-${AWS::StackName}"
+      TargetKeyId:
+        Ref: CriblControlTowerKMSKey
+
+  #Create Secret 
+  CriblSecretString:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: Credentials required for Cribl
+      Name: CriblSecretString
+      KmsKeyId: !Ref CriblControlTowerKMSKey
+      SecretString:
+        Fn::Join:
+        - ''
+        - - '{"VpcCIDR":"'
+          - Ref: VpcCIDR
+          - '","PublicSubnet1CIDR": "'
+          - Ref: PublicSubnet1CIDR
+          - '","sshAccessCidr": "'
+          - Ref: sshAccessCidr
+          - '","webAccessCidr": "'
+          - Ref: webAccessCidr
+          - '","instanceType": "'
+          - Ref: instanceType
+          - '","accountId": "'
+          - Ref: AWS::AccountId
+          - '"}'
+
+
+
+# ---------------------------------------------------------------------------------------------------
+#  Create a Cribl StackSet in the Control Tower Management Account
+#      - The Cribl StackSet is the basis for the Cribl template to be provisioned in the managed accounts 
+# --------------------------------------------------------------------------------------------------
+ 
+  CriblStackSet:
+    Type: AWS::CloudFormation::StackSet
+    Properties:
+      Description: StackSet for creating Cribl LogStream
+      StackSetName: 'CriblLogStreamv1'
+      PermissionModel: SELF_MANAGED
+      AdministrationRoleARN: !Join [':', ['arn:aws:iam:', !Ref 'AWS::AccountId', 'role/service-role/AWSControlTowerStackSetRole']]
+      ExecutionRoleName: "AWSControlTowerExecution"
+      Capabilities:
+        - CAPABILITY_NAMED_IAM
+        - CAPABILITY_IAM
+        - CAPABILITY_AUTO_EXPAND
+      TemplateURL: !Ref CriblTemplateURL
+
+# --------------------------------------------------------------------------------------------------
+# 
+#  1- Provisions a CloudWatchEvents Rule that is triggered based on a Control Tower Lifecycle Event
+#  2- Provisions a Lifecyle Lambda as a target for the CloudWatch Events Rule.
+# 
+# --------------------------------------------------------------------------------------------------
+
+  CriblCaptureControlTowerLifeCycleEvents:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Capture Control Tower LifeCycle Events for Cribl and Trigger an Action
+      EventPattern:
+        detail:
+          eventName:
+          - CreateManagedAccount
+          - UpdateManagedAccount
+          - EnableGuardrail
+          - DisableGuardrail
+          - SetupLandingZone
+          - UpdateLandingZone
+          - RegisterOrganizationalUnit
+          - DeregisterOrganizationalUnit
+          eventSource:
+          - controltower.amazonaws.com
+        detail-type:
+        - AWS Service Event via CloudTrail
+        source:
+        - aws.controltower
+      Name: CriblCaptureControlTowerLifeCycleEvents
+      State: ENABLED
+      Targets:
+      - Arn: !GetAtt "TriggerCustomizationsOnLifeCycleEvent.Arn"
+        Id: IDCaptureControlTowerLifeCycleEvents
+
+
+  #Cribl TriggerLifecyleEvent Lambda
+  TriggerCustomizationsOnLifeCycleEvent:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          import logging
+          import urllib.request
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          stackset_list = ['CriblLogStreamv1'']
+          result = {"ResponseMetadata":{"HTTPStatusCode":"400"}}
+          
+          def get_secret_value(key='CriblSecretString'):
+              secretsmanager = boto3.client('secretsmanager')
+              secret_list = secretsmanager.list_secrets()['SecretList']
+              output = {}
+              for s in secret_list:
+                  if key in s.values():
+                      output = secretsmanager.get_secret_value(SecretId=key)['CriblSecretString']
+              return(output)
+
+          def lambda_handler(event, context):
+               
+              secretList = json.loads(get_secret_value('CriblSecretString'))
+
+              masterAcct = event['account']
+              eventDetails = event['detail']
+              regionName = eventDetails['awsRegion']
+              eventName = eventDetails['eventName']
+              srvEventDetails = eventDetails['serviceEventDetails']
+              if eventName == 'CreateManagedAccount' or eventName == 'UpdateManagedAccount':
+                  newAccInfo = {}
+                  logger.info('Event Processed Sucessfully')
+                  if eventName == 'CreateManagedAccount':
+                      newAccInfo = srvEventDetails['createManagedAccountStatus']
+                  if eventName == 'UpdateManagedAccount':
+                      newAccInfo = srvEventDetails['updateManagedAccountStatus']
+                  cmdStatus = newAccInfo['state']
+                  if cmdStatus == 'SUCCEEDED':
+                      '''Sucessful event recieved'''
+                      accId = newAccInfo['account']['accountId']
+                      cloudformation = boto3.client('cloudformation')
+                      for item in stackset_list:
+                          try:
+                              result = cloudformation.create_stack_instances(StackSetName=item, Accounts=[accId], Regions=[regionName])
+                              logger.info('Processed {} Sucessfully'.format(item))
+                          except Exception as e:
+                              logger.error('Unable to launch in:{}, REASON: {}'.format(item, e))
+                  else:
+                      '''Unsucessful event recieved'''
+                      logger.info('Unsucessful Event Recieved. SKIPPING :{}'.format(event))
+                      return(False)
+              else:
+                  logger.info('Control Tower Event Captured :{}'.format(event))
+      Handler: index.lambda_handler
+      MemorySize: 256
+      Role: !GetAtt "CriblTriggerLifecycleEventLambdaRole.Arn"
+      Runtime: python3.7
+      Timeout: 60
+
+
+#Cribl Trigger LifecyleEvent Lambda Role
+  CriblTriggerLifecycleEventLambdaRole:
+    Type: 'AWS::IAM::Role'
+    DependsOn: CriblSecretString
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowLambdaAssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: CriblLifecycleLambdaPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: '1'
+                Action:
+                  - 's3:GetObject'
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:s3:::cribl-controltower-8zwvs0yfk6at-${AWS::Region}'
+                  - !Sub 'arn:${AWS::Partition}:s3:::cribl-controltower-8zwvs0yfk6at-${AWS::Region}/*'
+              - Sid: '2'
+                Effect: Allow
+                Action:
+                  - 'cloudformation:CreateStackInstances'
+                Resource: !Join [':',['arn:aws:cloudformation', !Ref 'AWS::Region', !Ref 'AWS::AccountId', 'stackset/CriblLogStreamv1:*']]
+              - Sid: '3'
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                  - 'logs:DescribeLogStreams'
+                Effect: Allow
+                Resource: !Join [':',['arn:aws:logs', !Ref 'AWS::Region', !Ref 'AWS::AccountId', 'log-group', '/aws/lambda/Cribl_TriggerLifecyleEvent:*']]
+              - Sid: '4'
+                Action:
+                  - 'secretsmanager:GetSecretValue'
+                  - 'secretsmanager:ListSecrets'
+                Effect: Allow
+                Resource: !Join [':',['arn:aws:secretsmanager', !Ref 'AWS::Region', !Ref 'AWS::AccountId','secret','CriblSecretString-*']]
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/ReadOnlyAccess'
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+
+    
+  PermissionForEventsToInvokeLambdachk:
+    Type: AWS::Lambda::Permission
+    DependsOn: CriblSecretString
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt "TriggerCustomizationsOnLifeCycleEvent.Arn"
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt "CriblCaptureControlTowerLifeCycleEvents.Arn"
