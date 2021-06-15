@@ -2,10 +2,6 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Cribl LogStream Single Deployment
 Parameters:
-  sshKeyPair:
-    Description: 'REQUIRED: Name of an existing EC2 key pair.'
-    Type: AWS::EC2::KeyPair::KeyName
-    Default: 'criblkey'
   amiId:
     Description: 'OPTIONAL: Advanced setting. Leave blank unless advised to assign
       by Cribl Support.'
@@ -286,7 +282,6 @@ Resources:
     Properties:
       ImageId: !If [customAmiId, !Ref 'amiId', !FindInMap [RegionMap, !Ref 'AWS::Region',
           HVM64]]
-      KeyName: !Ref 'sshKeyPair'
       InstanceType: !Ref 'instanceType'
       IamInstanceProfile: !Ref 'iamDefaultInstanceProfile'
       SubnetId: !Ref PublicSubnet1

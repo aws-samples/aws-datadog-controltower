@@ -194,8 +194,6 @@ Resources:
           ParameterValue: !Ref webAccessCidr
         - ParameterKey: instanceType
           ParameterValue: !Ref instanceType
-        - ParameterKey: sshKeyPair
-          ParameterValue: !Ref sshKeyPair
         - ParameterKey: amiId
           ParameterValue: ''
       AdministrationRoleARN: !Join [':', ['arn:aws:iam:', !Ref 'AWS::AccountId', 'role/service-role/AWSControlTowerStackSetRole']]
