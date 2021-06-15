@@ -255,7 +255,7 @@ Resources:
 
           logger = logging.getLogger()
           logger.setLevel(logging.INFO)
-          stackset_list = ['CriblLogStreamv1'']
+          stackset_list = ['CriblLogStreamv1']
           result = {"ResponseMetadata":{"HTTPStatusCode":"400"}}
           
           def get_secret_value(key='CriblSecretString'):
@@ -264,7 +264,7 @@ Resources:
               output = {}
               for s in secret_list:
                   if key in s.values():
-                      output = secretsmanager.get_secret_value(SecretId=key)['CriblSecretString']
+                      output = secretsmanager.get_secret_value(SecretId=key)['SecretString']
               return(output)
 
           def lambda_handler(event, context):
@@ -350,7 +350,12 @@ Resources:
                   - 'secretsmanager:GetSecretValue'
                   - 'secretsmanager:ListSecrets'
                 Effect: Allow
-                Resource: !Join [':',['arn:aws:secretsmanager', !Ref 'AWS::Region', !Ref 'AWS::AccountId','secret','CriblSecretString-*']]
+                Resource: !Join [':',['arn:aws:secretsmanager', !Ref 'AWS::Region', !Ref 'AWS::AccountId','secret','CriblSecretString*']]
+               - Sid: '5'
+                Action:
+                  - 'kms:Decrypt'
+                Effect: Allow
+                Resource: !GetAtt "CriblControlTowerKMSKey.Arn"
       ManagedPolicyArns:
         - !Sub 'arn:${AWS::Partition}:iam::aws:policy/ReadOnlyAccess'
         - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
