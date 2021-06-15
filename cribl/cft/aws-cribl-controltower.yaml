@@ -9,7 +9,7 @@ Description: AWS Control Tower Lifecycle Events for Cribl (MPCT-jqowxsqq)
 #   This template provisions infrastructure in the AWS Control Tower Management account that allows creation of Cribl 
 #   stack instances in Control Tower managed accounts whenever a new Control Tower managed account is added
 
-#  1- Creates a CloudKnox Stackset in the AWS Control Tower Management Account 
+#  1- Creates a Cribl Stackset in the AWS Control Tower Management Account 
 #  2- Provisions a CloudWatchEvents Rule that is triggered based on a Control Tower Lifecycle Event
 #  3- Provisions a Lifecyle Lambda as a target for the CloudWatch Events Rule.
 #    - The Lifecycle Lambda deploys a Cribl stack in the newly added Control Tower managed account--thus placing 
@@ -94,6 +94,12 @@ Parameters:
 
 Resources:
 
+
+# ---------------------------------------------------------------------------------------------------
+#  Create a Cribl Secrets Manager SecretString to store parameter values
+#      - Accessible while provisioning managed accounts with Control Tower Lifecycle events
+# --------------------------------------------------------------------------------------------------
+ 
   CriblControlTowerKMSKey:
     Type: AWS::KMS::Key
     Properties:
@@ -165,8 +171,8 @@ Resources:
           - Ref: webAccessCidr
           - '","instanceType": "'
           - Ref: instanceType
-          - '","accountId": "'
-          - Ref: AWS::AccountId
+          - '","sshKeyPair": "'
+          - Ref: sshKeyPair
           - '"}'
 
 
@@ -182,6 +188,19 @@ Resources:
       Description: StackSet for creating Cribl LogStream
       StackSetName: 'CriblLogStreamv1'
       PermissionModel: SELF_MANAGED
+      Parameters:
+        - ParameterKey: VpcCIDR
+          ParameterValue: !Ref VpcCIDR
+        - ParameterKey: PublicSubnet1CIDR
+          ParameterValue: !Ref PublicSubnet1CIDR
+        - ParameterKey: sshAccessCidr
+          ParameterValue: !Ref sshAccessCidr
+        - ParameterKey: webAccessCidr
+          ParameterValue: !Ref webAccessCidr
+        - ParameterKey: instanceType
+          ParameterValue: !Ref instanceType
+        - ParameterKey: sshKeyPair
+          ParameterValue: !Ref sshKeyPair
       AdministrationRoleARN: !Join [':', ['arn:aws:iam:', !Ref 'AWS::AccountId', 'role/service-role/AWSControlTowerStackSetRole']]
       ExecutionRoleName: "AWSControlTowerExecution"
       Capabilities:

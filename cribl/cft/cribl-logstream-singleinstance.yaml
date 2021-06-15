@@ -5,6 +5,7 @@ Parameters:
   sshKeyPair:
     Description: 'REQUIRED: Name of an existing EC2 key pair.'
     Type: AWS::EC2::KeyPair::KeyName
+    Default: 'criblkey'
   amiId:
     Description: 'OPTIONAL: Advanced setting. Leave blank unless advised to assign
       by Cribl Support.'
