@@ -24,7 +24,7 @@ Description: AWS Control Tower Lifecycle Events for Cribl (MPCT-jqowxsqq)
 
 Parameters:
   sshKeyPair:
-    Description: 'REQUIRED: Name of an existing EC2 key pair.'
+    Description: 'Name of an existing EC2 key pair.'
     Type: AWS::EC2::KeyPair::KeyName
    
   VpcCIDR:
