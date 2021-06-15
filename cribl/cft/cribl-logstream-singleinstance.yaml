@@ -68,7 +68,6 @@ Metadata:
     - Label:
         default: Instance Configuration
       Parameters:
-      - sshKeyPair
       - instanceType
     - Label:
         default: Network Configuration
@@ -83,8 +82,6 @@ Metadata:
       - AdditionalPolicies
       - amiId
     ParameterLabels:
-      sshKeyPair:
-        default: SSH Key Name
       instanceType:
         default: EC2 Instance Type
       webAccessCidr:
