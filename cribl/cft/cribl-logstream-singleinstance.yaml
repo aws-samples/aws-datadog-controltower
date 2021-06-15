@@ -10,6 +10,7 @@ Parameters:
     Description: 'OPTIONAL: Advanced setting. Leave blank unless advised to assign
       by Cribl Support.'
     Type: String
+    Default: ''
 
   VpcCIDR:
     Description: Please enter the IP range (CIDR notation) for this VPC

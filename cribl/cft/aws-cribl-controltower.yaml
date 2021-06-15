@@ -26,12 +26,7 @@ Parameters:
   sshKeyPair:
     Description: 'REQUIRED: Name of an existing EC2 key pair.'
     Type: AWS::EC2::KeyPair::KeyName
-  
-  amiId:
-    Description: 'OPTIONAL: Advanced setting. Leave blank unless advised to assign
-      by Cribl Support.'
-    Type: String
-  
+   
   VpcCIDR:
     Description: Please enter the IP range (CIDR notation) for this VPC
     Type: String
@@ -90,7 +85,7 @@ Parameters:
     Description: >-
       Base URL for Cribl CloudFormation template - Logstream template url
     Type: String
-    Default: 'https://cloudknox-controltower-template.s3.amazonaws.com/member-account.yaml'
+    Default: 'https://s3.amazonaws.com/cribl-controltower-template.s3.amazonaws.com/cribl-logstream-singleinstance.yaml'
 
 Resources:
 
@@ -201,6 +196,8 @@ Resources:
           ParameterValue: !Ref instanceType
         - ParameterKey: sshKeyPair
           ParameterValue: !Ref sshKeyPair
+        - ParameterKey: amiId
+          ParameterValue: ''
       AdministrationRoleARN: !Join [':', ['arn:aws:iam:', !Ref 'AWS::AccountId', 'role/service-role/AWSControlTowerStackSetRole']]
       ExecutionRoleName: "AWSControlTowerExecution"
       Capabilities:
