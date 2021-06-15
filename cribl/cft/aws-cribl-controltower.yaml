@@ -349,7 +349,7 @@ Resources:
                   - 'secretsmanager:ListSecrets'
                 Effect: Allow
                 Resource: !Join [':',['arn:aws:secretsmanager', !Ref 'AWS::Region', !Ref 'AWS::AccountId','secret','CriblSecretString*']]
-               - Sid: '5'
+              - Sid: '5'
                 Action:
                   - 'kms:Decrypt'
                 Effect: Allow
