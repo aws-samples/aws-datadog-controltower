@@ -3,6 +3,7 @@ Transform: AWS::Serverless-2016-10-31
 Description: Cribl LogStream Single Deployment
 Parameters:
   
+
   amiId:
     Description: 'OPTIONAL: Advanced setting. Leave blank unless advised to assign
       by Cribl Support.'
@@ -76,7 +77,6 @@ Metadata:
       - VpcCIDR
       - PublicSubnet1CIDR
       - webAccessCidr
-      - sshAccessCidr
     - Label:
         default: Advanced Settings
       Parameters:
@@ -183,6 +183,7 @@ Resources:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref PublicSubnet1
 
+ 
   ec2SingleSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -204,6 +205,7 @@ Resources:
         CidrIp: 0.0.0.0/0
         Description: Egress access
   
+
   s3DefaultDestinationBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -275,7 +277,7 @@ Resources:
   
   ec2SingleInstance:
     Type: AWS::EC2::Instance
-    DependsOn: 
+    DependsOn:
       - ec2SingleSecurityGroup
     Properties:
       ImageId: !If [customAmiId, !Ref 'amiId', !FindInMap [RegionMap, !Ref 'AWS::Region',
@@ -290,6 +292,7 @@ Resources:
         Value: Cribl LogStream Single Instance
       - Key: Purpose
         Value: Machine data analysis
+
 Outputs:
   logstreamWebUrl:
     Value: !Sub 'http://${ec2SingleInstance.PrivateIp}:9000/login'
