@@ -3,7 +3,7 @@
 
 # Use AWS Control Tower with Cribl for Multi account AWS Cloud Monitoring and Analytics
 
-* AWS Control Tower Lifecyle Integration with Cribl - Allow new or updated AWS accounts in an AWS Control Tower based AWS Organization to be managed automatically by Cribl
+* AWS Control Tower Lifecyle Integration with Cribl - Allow new or updated AWS accounts in an AWS Control Tower based AWS Organization to automatically deploy a Cribl Logstream stack.
 
 
 
@@ -21,10 +21,10 @@
 
 ## Solution Design
 
-![](images/arch-diag.png)
+![](images/cribl-arch.png)
 
 
-## Set up and Test
+## How to Install and Test
 
 
 1. **AWS Setup - AWS Control Tower Managed account**
