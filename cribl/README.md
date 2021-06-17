@@ -40,6 +40,5 @@
  		- Validate that an AWS CloudFormation stack instance has been provisioned that launches the Cribl Logstream single instance template in the managed account. 
  	
 
-
-## 
-kmmahaj
+ 
+**kmmahaj**
