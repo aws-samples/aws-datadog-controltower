@@ -53,7 +53,7 @@ Parameters:
     Description: >-
       Base URL for Acme's CloudFormation template for managed accounts
     Type: String
-    Default: 'https://acme-controltower-template.s3.amazonaws.com/acme-managedaccount.yaml'
+    Default: 'https://acme-controltower.s3.amazonaws.com/acme-managedaccount.yaml'
 
 Resources:
 
