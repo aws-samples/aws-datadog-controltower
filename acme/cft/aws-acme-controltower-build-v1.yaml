@@ -1,0 +1,32 @@
+
+
+# ---------------------------------------------------------------------------------------------------
+#  SECTION 1:
+#      - Provide input parameters for ISV template in managed account
+# --------------------------------------------------------------------------------------------------
+
+
+
+
+# --------------------------------------------------------------------------------------------------
+# SECTION 2:
+# Create a Acme Secrets Manager SecretString to store ISV API Keys/Secrets
+#      - Accessible while provisioning managed accounts with Control Tower Lifecycle events
+# --------------------------------------------------------------------------------------------------
+ 
+
+
+
+# ---------------------------------------------------------------------------------------------------
+# SECTION 3: 
+# Create a Acme StackSet in the Control Tower Management Account
+#      - The Acme StackSet is the basis for the Acme template to be provisioned in the managed accounts 
+# --------------------------------------------------------------------------------------------------
+ 
+
+
+# --------------------------------------------------------------------------------------------------
+# SECTION 4: 
+#  1- Provision a CloudWatchEvents Rule that is triggered based on a Control Tower Lifecycle Event
+#  2- Provision a Lifecyle Lambda as a target for the CloudWatch Events Rule.
+# --------------------------------------------------------------------------------------------------

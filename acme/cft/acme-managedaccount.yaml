@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: This CloudFormation template can be used to create a Cross-Account Role that allows Acme Monitoring Account to collect from the current AWS account.
+Parameters:
+  AcmeIAMRoleName:
+    Description: Customize the name of IAM Cross Account role for Acme Control Tower integration
+    Type: String
+    Default: IAM_R_ACME_SECURITY
+  AcmeMonitoringAccountId:
+    Description: Customize the name of IAM Cross Account role for Acme Control Tower integration
+    Type: String
+    Default: '1234123412341234'
+Resources:
+  AcmeSecurityMember:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Sub 'arn:${AWS::Partition}:iam::${AcmeMonitoringAccountId}:role/${AcmeIAMRoleName}'
+            Action: 
+              - sts:AssumeRole
+      RoleName: IAM_R_ACME_SECURITY_XA
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/SecurityAudit
