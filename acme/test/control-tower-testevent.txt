@@ -1,0 +1,43 @@
+
+{
+    "version": "0",
+    "id": "999cccaa-eaaa-0000-1111-123456789012",         
+    "detail-type": "AWS Service Event via CloudTrail",
+    "source": "aws.controltower",
+    "account": "341476298946",                                   
+    "time": "2018-08-30T21:42:18Z",                              
+    "region": "us-east-1",                                       
+    "resources": [ ],
+    "detail": {
+        "eventVersion": "1.05",
+        "userIdentity": {
+            "accountId": "341476298946",                       
+            "invokedBy": "AWS Internal"
+        },
+        "eventTime": "2018-08-30T21:42:18Z",                     
+        "eventSource": "controltower.amazonaws.com",
+        "eventName": "CreateManagedAccount",                  
+        "awsRegion": "us-east-1",                               
+        "sourceIPAddress": "AWS Internal",
+        "userAgent": "AWS Internal",
+        "eventID": "0000000-0000-0000-1111-123456789012",        
+        "readOnly": false,
+        "eventType": "AwsServiceEvent",
+        "serviceEventDetails": {
+            "createManagedAccountStatus": {
+                "organizationalUnit":{
+                    "organizationalUnitName":"datadogsharedou",
+                    "organizationalUnitId":"ou-9usm-fbbdxi1h"
+
+                    },
+                "account":{
+                    "accountName":"ctmemberaccount7plusx",
+                    "accountId":"602116679243"
+                    },
+                "state":"SUCCEEDED",
+                "message":"AWS Control Tower successfully created a managed account.",
+                "requestedTimestamp":"2019-11-15T11:45:18+0000",
+                "completedTimestamp":"2019-11-16T12:09:32+0000"}
+        }
+    }
+}
