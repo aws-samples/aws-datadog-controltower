@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: This CloudFormation template can be used to create a Cross-Account Role that enables the Snowflake Integration object to access AWS S3.
+Parameters:
+  SnowflakeExternalId:
+    Description: External ID for the IAM Cross Account role for the Snowflake Integration object
+    Type: String
+    Default: '123123123123123'
+  SnowflakeUserArn:
+    Description: Snowflake AWS IAM ARN for the Snowflake Integration object
+    Type: String
+    Default: 'arn:aws:iam::dummyuser:root'
+  S3BucketwithPrefix:
+    Description: Amazon S3 bucket Name with '/prefix'. See default for example syntax
+    Type: String
+    Default: 's3-snowflake-<accountid>-<region>/data'
+Resources:
+  SnowflakeIntegrationIAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref SnowflakeUserArn
+            Action:
+              - 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                'sts:ExternalId': !Ref SnowflakeExternalId
+      Path: /
+      RoleName: !Sub sf-integrationrole-${AWS::Region}
+      Policies:
+        - PolicyName: SnowflakeS3AccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: '1'
+                Action:
+                  - 's3:*'
+                Effect: Allow
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${S3BucketwithPrefix}
+                  - !Sub arn:${AWS::Partition}:s3:::${S3BucketwithPrefix}/*
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/AdministratorAccess"     
+

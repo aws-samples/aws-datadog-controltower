@@ -1,61 +1,59 @@
-
 AWSTemplateFormatVersion: '2010-09-09'
-Description: AWS Control Tower Lifecycle Events for Acme Corporation(MPCT-jqowxsqq)
+Description: AWS CloudFormation template that provisions a Snowflake Integration object for Amazon S3 access
 
-# ---------------------------------------------------------------------------------------------------
-#  SECTION 1:
-#      - Provide input parameters for ISV template in managed account
-# --------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------
+#  CloudFormation Template 1 of 1 - 
+# 
+#  Automates creation of a Snowflake Integration object for Amazon S3 access
+#    - Uses Snowflake OAuth to invoke Snowflake SQL API and provision Snowflake Integration object component in Snowflake
+#    - Provisions IAM integration role to provision Snowflake Integration object component in AWS
+#    - Automatically updates IAM role with External ID and Snowflake User Arn
+##
+## @kmmahaj
+## 
+#
+# ------------------------------------------------------------...............................................
 
 Parameters:
 
-  apiKey:
-    Description: REQUIRED. Default Access Key for Acme
+  SnowflakeOAuthRefreshToken:
+    Description: REQUIRED. Refresh token for Snowflake OAuth
     Type: String
     AllowedPattern: .+
-    ConstraintDescription: apiKey is required
-  apiSecret:
-    Description: REQUIRED. Default API Secret  for Acme
+    ConstraintDescription: Refresh token is required
+  S3BucketwithPrefix:
+    Description: Snowflake AWS IAM ARN for the Snowflake Integration object
     Type: String
-    AllowedPattern: .+
-    NoEcho: true
-    ConstraintDescription: apiSecret is required
-  url:
-    Description: REQUIRED. Default url for Acme
+    Default: 's3-snowflake-<accountid>-<region>/data'
+  SnowflakeExternalId:
+    Description: External ID for the IAM Cross Account role for the Snowflake Integration object
     Type: String
-    AllowedPattern: .+
-    Default: "app.acme.io"
-    ConstraintDescription: url is required
-  AcmeIAMRoleName:
-    Description: IAM role to be provisioned in the managed account
-    Type: String
-    Default: IAM_R_ACME_SECURITY
-  AcmeMonitoringAccountId:
-    Description: 12 digit AWS Account ID where Acme's monitoring appliance is installed
+    Default: '12312312313123'
+  SnowflakeUserArn:
+    Description: Snowflake AWS IAM ARN for the Snowflake Integration object
     Type: String
     Default: '1234123412341234'
-  AcmeTemplateURL:
+  SnowflakeIAMTemplateURL:
     Description: >-
-      Base URL for Acme's CloudFormation template for managed accounts
+      Base URL for Snowflake's CloudFormation template for the IAM integration role
     Type: String
-    Default: 'https://acme-controltower.s3.amazonaws.com/acme-managedaccount.yaml'
+    Default: 'https://snowflake-int.s3.amazonaws.com/aws-snowflake-iam.yaml'
 
 Resources:
 
+# ---------------------------------------------------------------------------------------------------
+#  Creates a Snowflake Secrets Manager SecretString to store Snowflake OAuth Refresh token
+#      - Accessed during the update of the Snowflake IAM integration role in AWS
 # --------------------------------------------------------------------------------------------------
-# SECTION 2:
-# Create a Acme Secrets Manager SecretString to store ISV API Keys/Secrets
-#      - Accessible while provisioning managed accounts with Control Tower Lifecycle events
-# --------------------------------------------------------------------------------------------------
- 
-  AcmeControlTowerKMSKey:
+
+  SnowflakeSecretKMSKey:
     Type: AWS::KMS::Key
     Properties:
       Description: "This is KMS Key Id used to encrypt/decrypt the Secret"
       EnableKeyRotation: true
       KeyPolicy:
         Version: '2012-10-17'
-        Id: acme-key-default-1
+        Id: snowflake-key-default-1
         Statement:
           - Sid: Allow administration of the key
             Effect: Allow
@@ -92,51 +90,43 @@ Resources:
                 kms:ViaService: !Sub secretsmanager.${AWS::Region}.amazonaws.com
                 kms:CallerAccount: !Sub ${AWS::AccountId}
 
-  AcmeControlTowerKMSAlias:
+  SnowflakeSecretKMSAlias:
     Type: AWS::KMS::Alias
     Properties:
-      AliasName: !Sub "alias/Acme-Control-Tower-${AWS::StackName}"
+      AliasName: !Sub "alias/snowflake-secret-${AWS::StackName}"
       TargetKeyId:
-        Ref: AcmeControlTowerKMSKey
+        Ref: SnowflakeSecretKMSKey
 
   #Create Secret 
-  AcmeSecretString:
+  SnowflakeSecretString:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Description: Credentials required for Acme
-      Name: AcmeSecretString
-      KmsKeyId: !Ref AcmeControlTowerKMSKey
+      Description: Credentials required for Snowflake OAuth 
+      Name: SnowflakeSecretString
+      KmsKeyId: !Ref SnowflakeSecretKMSKey
       SecretString:
         Fn::Join:
         - ''
-        - - '{"apiKey":"'
-          - Ref: apiKey
-          - '","apiSecret": "'
-          - Ref: apiSecret
-          - '","apiSecret": "'
-          - '","url": "'
-          - Ref: url
+        - - '{"SnowflakeOAuthRefreshToken":"'
+          - Ref: SnowflakeOAuthRefreshToken
           - '"}'
-  
 
-
-# ---------------------------------------------------------------------------------------------------
-# SECTION 3: 
-# Create a Acme StackSet in the Control Tower Management Account
-#      - The Acme StackSet is the basis for the Acme template to be provisioned in the managed accounts 
-# --------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+#  Create a Snowflake IAM Integration role StackSet
+# ---------------------------------------------------------------------
  
- 
-  AcmeStackSet:
+  SnowflakeIAMStackSet:
     Type: AWS::CloudFormation::StackSet
     Properties:
-      Description: StackSet for creating Acme Integration Role
-      StackSetName: 'AcmeMemberRolev1'
+      Description: StackSet for creating Snowflake IAM Integration Role
+      StackSetName: 'SnowflakeIAMRolev1'
       Parameters:
-        - ParameterKey: AcmeIAMRoleName
-          ParameterValue: !Ref AcmeIAMRoleName
-        - ParameterKey: AcmeMonitoringAccountId
-          ParameterValue: !Ref AcmeMonitoringAccountId
+        - ParameterKey: S3BucketwithPrefix
+          ParameterValue: !Ref S3BucketwithPrefix
+        - ParameterKey: SnowflakeExternalId
+          ParameterValue: !Ref SnowflakeExternalId
+        - ParameterKey: SnowflakeUserArn
+          ParameterValue: !Ref SnowflakeUserArn
       PermissionModel: SELF_MANAGED
       AdministrationRoleARN: !Join [':', ['arn:aws:iam:', !Ref 'AWS::AccountId', 'role/service-role/AWSControlTowerStackSetRole']]
       ExecutionRoleName: "AWSControlTowerExecution"
@@ -144,13 +134,12 @@ Resources:
         - CAPABILITY_NAMED_IAM
         - CAPABILITY_IAM
         - CAPABILITY_AUTO_EXPAND
-      TemplateURL: !Ref AcmeTemplateURL
-  
+      TemplateURL: !Ref SnowflakeIAMTemplateURL
 
 # --------------------------------------------------------------------------------------------------
-# SECTION 4: 
-#  1- Provision a CloudWatchEvents Rule that is triggered based on a Control Tower Lifecycle Event
-#  2- Provision a Lifecyle Lambda as a target for the CloudWatch Events Rule.
+# 
+#  1- Provisions a CloudWatchEvents Rule that is triggered based on a Control Tower Lifecycle Event
+#  2- Provisions a Lifecyle Lambda as a target for the CloudWatch Events Rule.
 # --------------------------------------------------------------------------------------------------
 
   AcmeCaptureControlTowerLifeCycleEvents:
