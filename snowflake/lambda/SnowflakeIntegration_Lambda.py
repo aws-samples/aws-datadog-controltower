@@ -133,10 +133,66 @@ def create_iam_policy(externalid, iamrolearn,SNOW_S3_BUCKETNAME,SNOW_S3_BUCKETPR
 
     print(response)
 
+def cfnsend(event, context, responseStatus, responseData, physicalResourceId=None, noEcho=False, reason=None):
+    
+    responseUrl = ''
+    StackId =''
+    RequestId =''
+    LogicalResourceId =''
+    
+    if 'ResponseURL' in event:
+        responseUrl = event['ResponseURL']
+    
+    if 'StackId' in event:
+        StackId = event['StackId']
+    
+    if 'RequestId' in event:
+        RequestId = event['RequestId']
+        
+    if 'LogicalResourceId' in event:
+        LogicalResourceId = event['LogicalResourceId']
+        
+    responseBody = {
+        'Status' : responseStatus,
+        'Reason' : reason or "See the details in CloudWatch Log Stream: {}".format(context.log_stream_name),
+        'PhysicalResourceId' : physicalResourceId or context.log_stream_name,
+        'StackId' : StackId,
+        'RequestId' : RequestId,
+        'LogicalResourceId' : LogicalResourceId,
+        'NoEcho' : noEcho,
+        'Data' : responseData
+    }
+
+    json_responseBody = json.dumps(responseBody)
+
+    print("Response body:")
+    print(json_responseBody)
+
+    headers = {
+        'content-type' : '',
+        'content-length' : str(len(json_responseBody))
+    }
+
+    try:
+        response = http.request('PUT', responseUrl, headers=headers, body=json_responseBody)
+        print("Status code:", response.status)
+
+
+    except Exception as e:
+
+        print("send(..) failed executing http.request(..):", e)
+
 def lambda_handler(event, context):
     
     sf_config = get_snowflake_config()
     logger.info(f'snowflake config successfully retrieved from secrets')
+
+    #Handle cfnsend delete event
+    eventType = event['RequestType']
+    if eventType == 'Delete':
+        logger.info(f'Request Type is Delete; unsupported')
+        cfnsend(event, context, 'SUCCESS', responseData)
+        return 'SUCCESS'
     
     assert isinstance(sf_config, dict), 'sf_config config must be of type dict'
  
@@ -200,4 +256,6 @@ def lambda_handler(event, context):
         cs.close()
     ctx.close()
 
-    return
+    cfnsend(event, context, 'SUCCESS', responseData)
+    return 'SUCCESS'
+    

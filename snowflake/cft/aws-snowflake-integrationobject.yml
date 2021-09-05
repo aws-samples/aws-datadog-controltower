@@ -158,7 +158,26 @@ Resources:
 
 #---------------------------------------------------------------------------------------------------
 #  1- Lambda Function that creates the Snowflake integration with S3
+#  2- Custom Lambda backed resource to create the Snowflake Storage integration
 # --------------------------------------------------------------------------------------------------
+
+#Custom Lambda backed Resource for creating the Snowflake Storage Integration Object
+  CreateSnowflakeStorageIntegration:
+    Type: 'Custom::CreateSnowflakeStorageIntegration'
+    DependsOn:
+      - SnowflakeIntegrationLambdaExecutePermission
+    Properties:
+      ServiceToken: !GetAtt 'SnowflakeIntegrationLambda.Arn'
+      SourceAccountId: !Ref 'AWS::AccountId'
+
+#Permission for CFN to invoke Snowflake Storage Integration lambda backed resource
+  SnowflakeIntegrationLambdaExecutePermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !GetAtt 'SnowflakeIntegrationLambda.Arn'
+      Principal: 'cloudformation.amazonaws.com'
+      SourceAccount: !Ref 'AWS::AccountId'
 
 #Lambda Function that creates the Snowflake integration with S3
   SnowflakeIntegrationLambda:
