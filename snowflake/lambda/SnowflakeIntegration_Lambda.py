@@ -14,6 +14,7 @@ import string
 import random
 import snowflake.connector
 import logging
+import urllib3
 from snowflake.connector import DictCursor
 
 AWS_EXTERNAL_ID = ""
@@ -21,7 +22,10 @@ AWS_IAM_USER_ARN = ""
 
 logger = logging.getLogger(__name__)
 logging.getLogger().setLevel(logging.INFO)
+http = urllib3.PoolManager()
+
 session = boto3.session.Session()
+
 sf_config_name = 'SnowflakeSecretString-v1'
 allowed_sf_config = ('snowaccount', 'snowuser', 'snowpass', 'snowdb', 'snowschema')
 
@@ -184,8 +188,8 @@ def cfnsend(event, context, responseStatus, responseData, physicalResourceId=Non
 
 def lambda_handler(event, context):
     
-    sf_config = get_snowflake_config()
-    logger.info(f'snowflake config successfully retrieved from secrets')
+    logger.info('EVENT Received: {}'.format(event))
+    responseData = {}
 
     #Handle cfnsend delete event
     eventType = event['RequestType']
@@ -194,8 +198,12 @@ def lambda_handler(event, context):
         cfnsend(event, context, 'SUCCESS', responseData)
         return 'SUCCESS'
     
-    assert isinstance(sf_config, dict), 'sf_config config must be of type dict'
+    
+    sf_config = get_snowflake_config()
+    logger.info(f'snowflake config successfully retrieved from secrets')
  
+    assert isinstance(sf_config, dict), 'sf_config config must be of type dict'
+
     ctx = snowflake.connector.connect(
         user=sf_config['snowuser'],
         password=sf_config['snowpass'],
