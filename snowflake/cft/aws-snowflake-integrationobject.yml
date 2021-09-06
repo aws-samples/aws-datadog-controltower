@@ -229,7 +229,7 @@ Resources:
   SnowflakeIntegrationLambdaRole:
     Type: 'AWS::IAM::Role'
     Properties:
-      RoleName: !Sub snowflakeintegrationlamdarole-${AWS::Region}
+      RoleName: !Sub snowflakeintegrationlamdarole-${AWS::Region}-${S3BUCKETNAME}-${S3BUCKETPREFIX}
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
