@@ -26,7 +26,7 @@ http = urllib3.PoolManager()
 
 session = boto3.session.Session()
 
-sf_config_name = 'SnowflakeSecretString-v1'
+sf_config_name = ''
 allowed_sf_config = ('snowaccount', 'snowuser', 'snowpass', 'snowdb', 'snowschema')
 
 def get_secret_value(secret_name):
@@ -48,7 +48,7 @@ def get_secret_value(secret_name):
         return secret_value
 
 
-def get_snowflake_config():
+def get_snowflake_config(sf_config_name):
     """
     get snowflake config, throws exception if invalid
     :return config: snowflake config dict
@@ -198,8 +198,8 @@ def lambda_handler(event, context):
         cfnsend(event, context, 'SUCCESS', responseData)
         return 'SUCCESS'
     
-    
-    sf_config = get_snowflake_config()
+    sf_config_name = os.environ['SNOW_SECRET']
+    sf_config = get_snowflake_config(sf_config_name)
     logger.info(f'snowflake config successfully retrieved from secrets')
  
     assert isinstance(sf_config, dict), 'sf_config config must be of type dict'
