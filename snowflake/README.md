@@ -1,7 +1,7 @@
 <p align="center">
 </p>
 
-# Use AWS Control Tower with Acme for Multi account AWS Cloud Monitoring and Analytics
+# Use AWS Service Catalog to automate Snowflake storage integration to access Amazon S3
 
 * AWS Control Tower Lifecyle Integration with Acme - Allow new or updated AWS accounts in an AWS Control Tower based AWS Organization to automatically deploy an Acme Integration role
 
@@ -21,7 +21,7 @@
 
 ## Solution Design
 
-![](images/acme-arch.PNG)
+![](images/snowflake-arch.PNG)
 
 
 ## How to Install and Test
