@@ -35,14 +35,14 @@
 
 ## How to Install
 
-1. **1-step install**
-	1. Launch the [aws-snowflakeintobj-servicecatalog](https://github.com/aws-samples/aws-datadog-controltower/blob/main/snowflake/cft/aws-snowflakeintobj-servicecatalog.yml) template. The template takes the S3 prerequisites bucket as a single parameter.
+**1-step install**
+1. Launch the [aws-snowflakeintobj-servicecatalog](https://github.com/aws-samples/aws-datadog-controltower/blob/main/snowflake/cft/aws-snowflakeintobj-servicecatalog.yml) template. The template takes the S3 prerequisites bucket as a single parameter.
  	
 ## Test and Run
 
-1. Navigate to the Service Catalog Console and launch the Snowflake Service Catalog Product
+1. Navigate to the Service Catalog Console and launch the Snowflake Service Catalog Product.
 	1. Provide Snowflake connection details and the external S3 bucket name and S3 prefix as parameters
-2. Navigate to the AWS IAM console and check that a new IAM role has been provisioned that ends with *S3INTxxxxx* suffix. This suffix will also be the name of your new Snowflake integration object 
+2. Navigate to the AWS IAM console and check that a new IAM role has been provisioned that ends with *S3INTxxxxx* suffix. This suffix will also be the name of your new Snowflake integration object
 3. From your Snowflake account (snowsql or console)-
 	1. Validate that a new Snowflake integration object has been created (DESC INTEGRATION *'integrationobjectname'*)
 	2. Obtain the *AWS_IAM_USER_ARN* and *AWS_EXTERNAL_ID* parameters from 1 and check that the AWS IAM role uses those as the trust relationship and external id parameters
