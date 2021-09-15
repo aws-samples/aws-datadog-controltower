@@ -45,7 +45,7 @@
 2. Navigate to the AWS IAM console and check that a new IAM role has been provisioned that ends with *S3INTxxxxx* suffix. This suffix will also be the name of your new Snowflake integration object
 3. From your Snowflake account (snowsql or console)-
 	1. Validate that a new Snowflake integration object has been created (DESC INTEGRATION *'integrationobjectname'*)
-	2. Obtain the *AWS_IAM_USER_ARN* and *AWS_EXTERNAL_ID* parameters from 1 and check that the AWS IAM role uses those as the trust relationship and external id parameters
+	2. Obtain the *AWS_IAM_USER_ARN* and *AWS_EXTERNAL_ID* parameters from above and check that the AWS IAM role uses those as the trust relationship and external id parameters
 	3. Validate that a new storage object has been created in Snowflake that references the S3 bucket and uses the integration object (SHOW STAGES IN ACCOUNT)
  	
 
