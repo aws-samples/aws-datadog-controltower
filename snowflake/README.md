@@ -21,7 +21,7 @@
 
 ## Solution Design
 
-![](images/snowflake-arch.PNG)
+![](images/snowflake-arch.png)
 
 
 ## How to Install and Test
