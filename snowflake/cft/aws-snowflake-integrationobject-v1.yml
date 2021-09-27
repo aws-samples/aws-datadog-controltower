@@ -67,11 +67,14 @@ Parameters:
     Default: 'EMP_BASIC'
     AllowedPattern: .+
     ConstraintDescription: snowtable is optional
-  SnowflakeSecretArn:
+  NewSnowflakeConnection:
     Description: >-
-      Enter ARN of the Secrets Manager Secret that contains Snowflake connection information
+      Enter 'yes' if any information required for the snowflake connection is new
     Type: String
-    Default: ''
+    Default: 'yes'
+    AllowedValues:
+      - 'yes'
+      - 'no'
   SnowflakeLambdaArn:
     Description: >-
       Enter ARN of the Snowflake Lambda function if the product was already launched earlier
@@ -85,8 +88,8 @@ Conditions:
     - ''
 
   CreateNewSnowflakeSecret: !Equals 
-    - !Ref SnowflakeSecretArn
-    - ''
+    - !Ref NewSnowflakeConnection
+    - 'yes'
 
 Resources:
 
@@ -181,11 +184,6 @@ Resources:
       ServiceToken:
         !If [CreateNewLambda, !GetAtt 'SnowflakeIntegrationLambda.Arn', !Ref SnowflakeLambdaArn]
       SourceAccountId: !Ref 'AWS::AccountId'
-      SNOW_S3_BUCKETNAME: !Ref S3BUCKETNAME
-      SNOW_S3_BUCKETPREFIX: !Ref S3BUCKETPREFIX
-      SNOW_SECRET:
-        !If [CreateNewSnowflakeSecret, !Ref SnowflakeSecretString, !Ref SnowflakeSecretArn]
-   
 
 #Permission for CFN to invoke Snowflake Storage Integration lambda backed resource
   SnowflakeIntegrationLambdaExecutePermission:

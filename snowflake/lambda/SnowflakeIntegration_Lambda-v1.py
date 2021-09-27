@@ -198,8 +198,7 @@ def lambda_handler(event, context):
         cfnsend(event, context, 'SUCCESS', responseData)
         return 'SUCCESS'
     
-    #sf_config_name = os.environ['SNOW_SECRET']
-    sf_config_name = event['ResourceProperties']['SNOW_SECRET']
+    sf_config_name = os.environ['SNOW_SECRET']
     sf_config = get_snowflake_config(sf_config_name)
     logger.info(f'snowflake config successfully retrieved from secrets')
  
@@ -215,10 +214,8 @@ def lambda_handler(event, context):
         ocsp_response_cache_filename="/tmp/ocsp_response_cache"
         )
     cs = ctx.cursor()
-    #SNOW_S3_BUCKETNAME = os.environ['SNOW_S3_BUCKETNAME']
-    SNOW_S3_BUCKETNAME = event['ResourceProperties']['SNOW_S3_BUCKETNAME']
-    #SNOW_S3_BUCKETPREFIX = os.environ['SNOW_S3_BUCKETPREFIX']
-    SNOW_S3_BUCKETPREFIX = event['ResourceProperties']['SNOW_S3_BUCKETPREFIX']
+    SNOW_S3_BUCKETNAME = os.environ['SNOW_S3_BUCKETNAME']
+    SNOW_S3_BUCKETPREFIX = os.environ['SNOW_S3_BUCKETPREFIX']
     
     letters = string.ascii_lowercase
     randomstr = ''.join(random.choice(letters) for i in range(3))
