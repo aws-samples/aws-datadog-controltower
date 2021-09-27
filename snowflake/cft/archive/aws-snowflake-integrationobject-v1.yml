@@ -67,16 +67,29 @@ Parameters:
     Default: 'EMP_BASIC'
     AllowedPattern: .+
     ConstraintDescription: snowtable is optional
-  SnowflakeSecretArn:
+  NewSnowflakeConnection:
     Description: >-
-      Enter the Arn of the Snowflake Secret if the secret is already created in Secrets Manager
+      Enter 'yes' if any information required for the snowflake connection is new
+    Type: String
+    Default: 'yes'
+    AllowedValues:
+      - 'yes'
+      - 'no'
+  SnowflakeLambdaArn:
+    Description: >-
+      Enter ARN of the Snowflake Lambda function if the product was already launched earlier
     Type: String
     Default: ''
 
+
 Conditions:
-  CreateNewSnowflakeSecret: !Equals 
-    - !Ref SnowflakeSecretArn
+  CreateNewLambda: !Equals 
+    - !Ref SnowflakeLambdaArn
     - ''
+
+  CreateNewSnowflakeSecret: !Equals 
+    - !Ref NewSnowflakeConnection
+    - 'yes'
 
 Resources:
 
@@ -84,6 +97,7 @@ Resources:
 
   SnowflakeKMSKey:
     Type: AWS::KMS::Key
+    Condition: CreateNewSnowflakeSecret
     Properties:
       Description: "This is KMS Key Id used to encrypt/decrypt the Secret"
       EnableKeyRotation: true
@@ -128,6 +142,7 @@ Resources:
 
   SnowflakeKMSAlias:
     Type: AWS::KMS::Alias
+    Condition: CreateNewSnowflakeSecret
     Properties:
       AliasName: !Sub "alias/Snowflake-KMS-${AWS::StackName}"
       TargetKeyId:
@@ -139,7 +154,6 @@ Resources:
     Condition: CreateNewSnowflakeSecret
     Properties:
       Description: Credentials required for Snowflake
-      Name: SnowflakeSecretString-v1
       KmsKeyId: !Ref SnowflakeKMSKey
       SecretString:
         Fn::Join:
@@ -167,7 +181,8 @@ Resources:
     DependsOn:
       - SnowflakeIntegrationLambdaExecutePermission
     Properties:
-      ServiceToken: !GetAtt 'SnowflakeIntegrationLambda.Arn'
+      ServiceToken:
+        !If [CreateNewLambda, !GetAtt 'SnowflakeIntegrationLambda.Arn', !Ref SnowflakeLambdaArn]
       SourceAccountId: !Ref 'AWS::AccountId'
 
 #Permission for CFN to invoke Snowflake Storage Integration lambda backed resource
@@ -175,13 +190,15 @@ Resources:
     Type: 'AWS::Lambda::Permission'
     Properties:
       Action: 'lambda:InvokeFunction'
-      FunctionName: !GetAtt 'SnowflakeIntegrationLambda.Arn'
+      FunctionName:
+        !If [CreateNewLambda, !GetAtt 'SnowflakeIntegrationLambda.Arn', !Ref SnowflakeLambdaArn]
       Principal: 'cloudformation.amazonaws.com'
       SourceAccount: !Ref 'AWS::AccountId'
 
 #Lambda Function that creates the Snowflake integration with S3
   SnowflakeIntegrationLambda:
     Type: 'AWS::Lambda::Function'
+    Condition: CreateNewLambda
     Properties:
       FunctionName: !Join 
         - ''
@@ -208,11 +225,13 @@ Resources:
           SNOW_S3_BUCKETNAME: !Ref S3BUCKETNAME
           SNOW_S3_BUCKETPREFIX: !Ref S3BUCKETPREFIX
           SNOW_TABLE: !Ref snowtable
+          SNOW_SECRET: !Ref SnowflakeSecretString
       Timeout: 500
 
 #Lambda Layer for Snowflake Python Connector
   SnowflakeLayer:
     Type: AWS::Lambda::LayerVersion
+    Condition: CreateNewLambda
     Properties:
       CompatibleRuntimes:
         - python3.6
@@ -228,6 +247,7 @@ Resources:
 #IAM Role for the SnowflakeIntegration Lambda
   SnowflakeIntegrationLambdaRole:
     Type: 'AWS::IAM::Role'
+    Condition: CreateNewLambda
     Properties:
       RoleName: !Sub snowflakeintegrationlamdarole-${AWS::Region}-${S3BUCKETNAME}-${S3BUCKETPREFIX}
       AssumeRolePolicyDocument:
