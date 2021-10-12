@@ -14,7 +14,7 @@
  * Creates an Ermetic Stackset in the Control Tower Management Account 
  * Provisions a CloudWatchEvents Rule that is triggered based on a Control Tower Lifecycle Event
  * Provisions a Lifecyle Lambda as a target for the CloudWatch Events Rule
- 	- The Lifecycle Lambda deploys an Acme Integration role in the newly added Control Tower managed account--thus placing that account under Acme's management
+ 	- The Lifecycle Lambda deploys an Ermetic Integration role in the newly added Control Tower managed account--thus enabling Ermetic to access the managed account based on the permissions in the Integration role.
 
 
 ## Solution Design
