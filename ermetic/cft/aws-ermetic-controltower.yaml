@@ -91,12 +91,12 @@ Resources:
       Name: ErmeticCaptureControlTowerLifeCycleEvents
       State: ENABLED
       Targets:
-      - Arn: !GetAtt "TriggerCustomizationsOnLifeCycleEvent.Arn"
+      - Arn: !GetAtt "ErmeticTriggerCustomizationsOnLifeCycleEvent.Arn"
         Id: IDCaptureControlTowerLifeCycleEvents
 
 
-  #Acme TriggerLifecyleEvent Lambda
-  TriggerCustomizationsOnLifeCycleEvent:
+  #Ermetic TriggerLifecyleEvent Lambda
+  ErmeticTriggerCustomizationsOnLifeCycleEvent:
     Type: AWS::Lambda::Function
     Properties:
       Code:
@@ -129,8 +129,6 @@ Resources:
                   if cmdStatus == 'SUCCEEDED':
                       '''Sucessful event recieved'''
                       accId = newAccInfo['account']['accountId']
-
-                      # register_acme_account(accId)
 
                       cloudformation = boto3.client('cloudformation')
                       for item in stackset_list:
@@ -174,13 +172,13 @@ Resources:
                   - 's3:GetObject'
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:${AWS::Partition}:s3:::cribl-controltower-8zwvs0yfk6at-${AWS::Region}'
-                  - !Sub 'arn:${AWS::Partition}:s3:::cribl-controltower-8zwvs0yfk6at-${AWS::Region}/*'
+                  - !Sub 'arn:${AWS::Partition}:s3:::s3-ermetic-${AWS::AccountId}-${AWS::Region}'
+                  - !Sub 'arn:${AWS::Partition}:s3:::s3-ermetic-${AWS::AccountId}-${AWS::Region}/*'
               - Sid: '2'
                 Effect: Allow
                 Action:
                   - 'cloudformation:CreateStackInstances'
-                Resource: !Join [':',['arn:aws:cloudformation', !Ref 'AWS::Region', !Ref 'AWS::AccountId', 'stackset/AcmeMemberRolev1:*']]
+                Resource: !Join [':',['arn:aws:cloudformation', !Ref 'AWS::Region', !Ref 'AWS::AccountId', 'stackset/ErmeticMemberRolev1:*']]
               - Sid: '3'
                 Action:
                   - 'logs:CreateLogGroup'
@@ -188,7 +186,7 @@ Resources:
                   - 'logs:PutLogEvents'
                   - 'logs:DescribeLogStreams'
                 Effect: Allow
-                Resource: !Join [':',['arn:aws:logs', !Ref 'AWS::Region', !Ref 'AWS::AccountId', 'log-group', '/aws/lambda/Acme_TriggerLifecyleEvent:*']]
+                Resource: !Join [':',['arn:aws:logs', !Ref 'AWS::Region', !Ref 'AWS::AccountId', 'log-group', '/aws/lambda/ErmeticTriggerLifecyleEvent:*']]
       ManagedPolicyArns:
         - !Sub 'arn:${AWS::Partition}:iam::aws:policy/ReadOnlyAccess'
         - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
@@ -198,6 +196,6 @@ Resources:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !GetAtt "TriggerCustomizationsOnLifeCycleEvent.Arn"
+      FunctionName: !GetAtt "ErmeticTriggerCustomizationsOnLifeCycleEvent.Arn"
       Principal: events.amazonaws.com
       SourceArn: !GetAtt "ErmeticCaptureControlTowerLifeCycleEvents.Arn"
