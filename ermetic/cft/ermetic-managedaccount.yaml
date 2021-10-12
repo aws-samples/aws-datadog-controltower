@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: This CloudFormation template allows Ermetic SaaS to establish trust i.e. perform actions (as per permissions policy) with this managed account
+Parameters:
+  ErmeticSaaSAccountId:
+    Description: 12 digit AWS Account ID of Ermetic SaaS. Ermetic SaaS establishes trust with managed accounts to perform actions as defined by a permissions policy.
+    Type: String
+    Default: '1234123412341234'
+Resources:
+  ErmeticSecurityMember:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Sub 'arn:${AWS::Partition}:iam::${ErmeticSaaSAccountId}:root'
+            Action: 
+              - sts:AssumeRole
+      RoleName: IAM_R_ERMETIC_SECURITY_XA
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/SecurityAudit

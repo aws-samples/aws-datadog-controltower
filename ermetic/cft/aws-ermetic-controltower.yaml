@@ -1,0 +1,203 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS Control Tower Lifecycle Events for Ermetic(MPCT-jqowxsqq)
+
+# ----------------------------------------------------------------------------------------------------------
+#  CloudFormation Template 1 of 1 - 
+#   
+#   This templates allows newly added Control Tower accounts to be managed automatically by Ermetic
+#                                  
+#   This template provisions infrastructure in the AWS Control Tower Management account that allows creation of Ermetic
+#   stack instances in Control Tower managed accounts whenever a new Control Tower managed account is added
+
+#  1- Creates a Ermetic Stackset in the AWS Control Tower Management Account 
+#  2- Provisions a CloudWatchEvents Rule that is triggered based on a Control Tower Lifecycle Event
+#  3- Provisions a Lifecyle Lambda as a target for the CloudWatch Events Rule.
+#    - The Lifecycle Lambda deploys a cloudformation stack in the newly added Control Tower managed account. 
+#     The stack creates a Cross Account IAM role that creates trust with Ermetic SaaS
+#  
+##
+## @kmmahaj
+## 
+#
+# ------------------------------------------------------------...............................................
+
+Parameters:
+
+  ErmeticTrailArn:
+    Description: CloudTrail Arn that captures AWS events for Ermetic. Subsitute AccountId and Region
+    Type: String
+    Default: arn:aws:cloudtrail:<CTManagementAccountRegion>:<CTManagementAccountId>:trail/aws-controltower-BaselineCloudTrail
+  ErmeticSaaSAccountId:
+    Description: 12 digit AWS Account ID of Ermetic SaaS. Ermetic SaaS establishes trust with managed accounts to perform actions as defined by a permissions policy. 
+    Type: String
+    Default: '1234123412341234'
+  ErmeticTemplateURL:
+    Description: >-
+      Base URL for Ermetic's CloudFormation template for managed accounts (to be hosted by Ermetic)
+    Type: String
+    Default: 'https://s3-ermetic-<CTManagementAccountId>-<CTManagementAccountRegion>.s3.amazonaws.com/ermetic-managedaccount.yaml'
+
+Resources:
+
+# ---------------------------------------------------------------------------------------------------
+#  Create a Ermetic StackSet in the Control Tower Management Account
+#      - The Ermetic StackSet is the basis for the Ermetic template to be provisioned in the managed accounts 
+# --------------------------------------------------------------------------------------------------
+ 
+  ErmeticStackSet:
+    Type: AWS::CloudFormation::StackSet
+    Properties:
+      Description: StackSet for creating Ermetic Integration Role
+      StackSetName: 'ErmeticMemberRolev1'
+      Parameters:
+        - ParameterKey: ErmeticSaaSAccountId
+          ParameterValue: !Ref ErmeticSaaSAccountId
+      PermissionModel: SELF_MANAGED
+      AdministrationRoleARN: !Join [':', ['arn:aws:iam:', !Ref 'AWS::AccountId', 'role/service-role/AWSControlTowerStackSetRole']]
+      ExecutionRoleName: "AWSControlTowerExecution"
+      Capabilities:
+        - CAPABILITY_NAMED_IAM
+        - CAPABILITY_IAM
+        - CAPABILITY_AUTO_EXPAND
+      TemplateURL: !Ref ErmeticTemplateURL
+
+# --------------------------------------------------------------------------------------------------
+# 
+#  1- Provisions a CloudWatchEvents Rule that is triggered based on a Control Tower Lifecycle Event
+#  2- Provisions a Lifecyle Lambda as a target for the CloudWatch Events Rule.
+# --------------------------------------------------------------------------------------------------
+
+  ErmeticCaptureControlTowerLifeCycleEvents:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Capture Control Tower LifeCycle Events for Ermetic and Trigger an Action
+      EventPattern:
+        detail:
+          eventName:
+          - CreateManagedAccount
+          - UpdateManagedAccount
+          - EnableGuardrail
+          - DisableGuardrail
+          - SetupLandingZone
+          - UpdateLandingZone
+          - RegisterOrganizationalUnit
+          - DeregisterOrganizationalUnit
+          eventSource:
+          - controltower.amazonaws.com
+        detail-type:
+        - AWS Service Event via CloudTrail
+        source:
+        - aws.controltower
+      Name: ErmeticCaptureControlTowerLifeCycleEvents
+      State: ENABLED
+      Targets:
+      - Arn: !GetAtt "TriggerCustomizationsOnLifeCycleEvent.Arn"
+        Id: IDCaptureControlTowerLifeCycleEvents
+
+
+  #Acme TriggerLifecyleEvent Lambda
+  TriggerCustomizationsOnLifeCycleEvent:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          import logging
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          stackset_list = ['ErmeticMemberRolev1']
+          result = {"ResponseMetadata":{"HTTPStatusCode":"400"}}
+          
+          def lambda_handler(event, context):          
+                  
+              masterAcct = event['account']
+              eventDetails = event['detail']
+              regionName = eventDetails['awsRegion']
+              eventName = eventDetails['eventName']
+              srvEventDetails = eventDetails['serviceEventDetails']
+              if eventName == 'CreateManagedAccount' or eventName == 'UpdateManagedAccount':
+                  newAccInfo = {}
+                  logger.info('Event Processed Sucessfully')
+                  if eventName == 'CreateManagedAccount':
+                      newAccInfo = srvEventDetails['createManagedAccountStatus']
+                  if eventName == 'UpdateManagedAccount':
+                      newAccInfo = srvEventDetails['updateManagedAccountStatus']
+                  cmdStatus = newAccInfo['state']
+                  if cmdStatus == 'SUCCEEDED':
+                      '''Sucessful event recieved'''
+                      accId = newAccInfo['account']['accountId']
+
+                      # register_acme_account(accId)
+
+                      cloudformation = boto3.client('cloudformation')
+                      for item in stackset_list:
+                          try:
+                              result = cloudformation.create_stack_instances(StackSetName=item, Accounts=[accId], Regions=[regionName])
+                              logger.info('Processed {} Sucessfully'.format(item))
+                          except Exception as e:
+                              logger.error('Unable to launch in:{}, REASON: {}'.format(item, e))
+                  else:
+                      '''Unsucessful event recieved'''
+                      logger.info('Unsucessful Event Recieved. SKIPPING :{}'.format(event))
+                      return(False)
+              else:
+                  logger.info('Control Tower Event Captured :{}'.format(event))
+      Handler: index.lambda_handler
+      MemorySize: 256
+      Role: !GetAtt "ErmeticTriggerLifecycleEventLambdaRole.Arn"
+      Runtime: python3.7
+      Timeout: 60
+
+
+#Ermetic Trigger LifecyleEvent Lambda Role
+  ErmeticTriggerLifecycleEventLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowLambdaAssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: ErmeticLifecycleLambdaPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: '1'
+                Action:
+                  - 's3:GetObject'
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:s3:::cribl-controltower-8zwvs0yfk6at-${AWS::Region}'
+                  - !Sub 'arn:${AWS::Partition}:s3:::cribl-controltower-8zwvs0yfk6at-${AWS::Region}/*'
+              - Sid: '2'
+                Effect: Allow
+                Action:
+                  - 'cloudformation:CreateStackInstances'
+                Resource: !Join [':',['arn:aws:cloudformation', !Ref 'AWS::Region', !Ref 'AWS::AccountId', 'stackset/AcmeMemberRolev1:*']]
+              - Sid: '3'
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                  - 'logs:DescribeLogStreams'
+                Effect: Allow
+                Resource: !Join [':',['arn:aws:logs', !Ref 'AWS::Region', !Ref 'AWS::AccountId', 'log-group', '/aws/lambda/Acme_TriggerLifecyleEvent:*']]
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/ReadOnlyAccess'
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+
+    
+  PermissionForEventsToInvokeLambdachk:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt "TriggerCustomizationsOnLifeCycleEvent.Arn"
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt "ErmeticCaptureControlTowerLifeCycleEvents.Arn"
