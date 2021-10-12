@@ -113,6 +113,7 @@ Resources:
           
           def lambda_handler(event, context):          
                   
+              cloudtrailarn = os.environ['cloudtrailarn']
               masterAcct = event['account']
               eventDetails = event['detail']
               regionName = eventDetails['awsRegion']
@@ -135,6 +136,9 @@ Resources:
                           try:
                               result = cloudformation.create_stack_instances(StackSetName=item, Accounts=[accId], Regions=[regionName])
                               logger.info('Processed {} Sucessfully'.format(item))
+                        
+                              # register_ermetic(cloudtrailarn,accID,regionName)
+                              
                           except Exception as e:
                               logger.error('Unable to launch in:{}, REASON: {}'.format(item, e))
                   else:
@@ -147,6 +151,9 @@ Resources:
       MemorySize: 256
       Role: !GetAtt "ErmeticTriggerLifecycleEventLambdaRole.Arn"
       Runtime: python3.7
+      Environment:
+        Variables:
+          cloudtrailarn: !Ref 'ErmeticTrailArn'
       Timeout: 60
 
 
@@ -186,7 +193,7 @@ Resources:
                   - 'logs:PutLogEvents'
                   - 'logs:DescribeLogStreams'
                 Effect: Allow
-                Resource: !Join [':',['arn:aws:logs', !Ref 'AWS::Region', !Ref 'AWS::AccountId', 'log-group', '/aws/lambda/ErmeticTriggerLifecyleEvent:*']]
+                Resource: !Join [':',['arn:aws:logs', !Ref 'AWS::Region', !Ref 'AWS::AccountId', 'log-group', '/aws/lambda/aws-ermetic-controltower-*']]
       ManagedPolicyArns:
         - !Sub 'arn:${AWS::Partition}:iam::aws:policy/ReadOnlyAccess'
         - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
