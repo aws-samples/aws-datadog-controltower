@@ -129,7 +129,7 @@ Resources:
           - Ref: DatadogApplicationKey
           - '","DdSite": "'
           - Ref: DdSite
-          - '","Permissions": "'
+          - '","BasePermissions": "'
           - Ref: Permissions
           - '","IAMRoleName": "'
           - Ref: IAMRoleName
@@ -376,6 +376,24 @@ Resources:
             Condition: {}
       Path: /
       Policies:
+        - PolicyName: GetSecretValue
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Sid: Secrets1
+              Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Ref DatadogSecretString1
+        - PolicyName: ListSecrets
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Sid: Secrets2
+              Effect: Allow
+              Action:
+                - secretsmanager:ListSecrets
+              Resource: '*'
         - PolicyName: inline-policy
           PolicyDocument:
             Version: 2012-10-17
@@ -384,8 +402,19 @@ Resources:
                 Action:
                   - 'cloudformation:CreateStackInstances'
                 Resource: !Join [':',['arn:aws:cloudformation', !Ref 'AWS::Region', !Ref 'AWS::AccountId', 'stackset/DataDogForwarderv1:*']]
+        - PolicyName: Pass_Role
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Sid: VisualEditor3
+              Effect: Allow
+              Action:
+                - iam:PassRole
+              Resource: !Join [':', ['arn:aws:iam:', !Ref "AWS::AccountId", 'role/service-role/AWSControlTowerStackSetRole']]
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AWSOrganizationsReadOnlyAccess
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
 
   TriggerCustomizationsOnLifeCycleEvent:
     DependsOn:
