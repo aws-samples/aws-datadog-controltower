@@ -21,9 +21,6 @@
 
 ![](images/ermetic-arch.png)
 
-## Prerequisite
-1. Create an Amazon Simple Storage Service (Amazon S3) bucket with the following name: s3-ermetic-AccountId-Region where AccountId is your AWS Management account ID and Region is the AWS Region for the Control Tower set up in the management account. Upload the ermetic-managedaccount.yml template in this bucket. *This step will not be needed if you (ISV) are hosting the managed account template*
-
 
 ## How to Install and Test
 
