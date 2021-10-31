@@ -30,12 +30,12 @@ Parameters:
   ErmeticSaaSAccountId:
     Description: 12 digit AWS Account ID of Ermetic SaaS. Ermetic SaaS establishes trust with managed accounts to perform actions as defined by a permissions policy. 
     Type: String
-    Default: '1234123412341234'
+    Default: '081802104111'
   ErmeticTemplateURL:
     Description: >-
-      Base URL for Ermetic's CloudFormation template for managed accounts (to be hosted by Ermetic)
+      Base URL for Ermetic's CloudFormation template for managed accounts
     Type: String
-    Default: 'https://s3-ermetic-<CTManagementAccountId>-<CTManagementAccountRegion>.s3.amazonaws.com/ermetic-managedaccount.yaml'
+    Default: 'https://ermetic-controltower-managedaccount.s3.amazonaws.com/ermetic-managedaccount.yaml'
 
 Resources:
 
