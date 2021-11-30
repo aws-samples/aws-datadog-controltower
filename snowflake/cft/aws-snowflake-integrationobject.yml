@@ -14,57 +14,49 @@ Parameters:
   SourceBucket:
     Description: S3 Bucket that contains the Snowflake integration Lambda 
     Type: String
-    Default: 's3-snowflakeintegration-acountId-region'
+    Default: 's3-snowflakeintegration-accountId-region'
     MinLength: '1'
     MaxLength: '255'
   snowaccount:
     Description: REQUIRED. Snowflake Account Identifier
     Type: String
-    Default: 'XIA09677.us-east-1'
     AllowedPattern: .+
     ConstraintDescription: snowaccount is required
   snowuser:
     Description: REQUIRED. Snowflake account user
     Type: String
-    Default: 'kmmahaj'
     NoEcho: true
     AllowedPattern: .+
     ConstraintDescription: snowuser is required
   snowpass:
     Description: REQUIRED. Snowflake password for the Snowflake account user
     Type: String
-    Default: 'Summer!23'
     NoEcho: true
     AllowedPattern: .+
     ConstraintDescription: snowpass is required
   snowdb:
     Description: REQUIRED. Snowflake Database
     Type: String
-    Default: 'SF_TUTS'
     AllowedPattern: .+
     ConstraintDescription: snowdb is required
   snowschema:
     Description: REQUIRED. Snowflake Schema
     Type: String
-    Default: 'PUBLIC'
     AllowedPattern: .+
     ConstraintDescription: snowschema is required
   S3BUCKETNAME:
     Description: REQUIRED. Amazon S3 Bucket Name. This is the name of the S3 bucket that needs to be accessed by the Snowflake Integration object
     Type: String
     AllowedPattern: .+
-    Default: "mybucket1"
     ConstraintDescription: S3BUCKETNAME is required
   S3BUCKETPREFIX:
     Description: REQUIRED. Amazon S3 Bucket prefix. This is the S3 prefix/folder of the bucket that needs to be accessed by the Snowflake Integration object
     Type: String
     AllowedPattern: .+
-    Default: "mypath1"
     ConstraintDescription: S3BUCKETPREFIX is required
   snowtable:
     Description: OPTIONAL. Name of a Snowflake table in the Snowflake DB
     Type: String
-    Default: 'EMP_BASIC'
     AllowedPattern: .+
     ConstraintDescription: snowtable is optional
   SnowflakeSecretArn:
